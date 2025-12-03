@@ -11,8 +11,12 @@ LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
 
-# Updated Page Title
 st.set_page_config(page_title="Stephanie's Snow Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
+
+# --- 1. OFFICIAL LOGO (Top Left) ---
+st.logo("https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png", 
+        link="https://weather.gov", 
+        icon_image="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png")
 
 # --- CUSTOM CSS (Snow Storm Theme) ---
 st.markdown("""
@@ -56,24 +60,33 @@ st.markdown("""
     }
     
     /* 5. Headers */
-    h1, h2, h3 {
+    h1, h2, h3, p, span, div {
         color: #e0f7fa !important;
-        text-shadow: 0 0 15px rgba(224, 247, 250, 0.5);
+        text-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
 </style>
 """, unsafe_allow_html=True)
 
+# --- SIDEBAR CONTROLS ---
+with st.sidebar:
+    # UPDATED: Snoopy Sledding GIF (Direct Link)
+    st.image("https://64.media.tumblr.com/f722ffb4624171f3ab2e727913e93ae2/tumblr_p14oecN2Wx1ro8ysbo1_500.gif", caption="Bonnie Lane Snow Patrol")
+    
+    st.markdown("### ❄️ Dashboard Controls")
+    
+    if st.button("✨ Let it Snow!"):
+        st.snow()
+    
+    if st.button("🔄 Force Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
+
 # --- HEADER ---
 c1, c2 = st.columns([3, 1])
 with c1:
-    # Updated Main Header
     st.title("❄️ Stephanie's Snow Forecaster")
     st.markdown("### *Bonnie Lane Edition*") 
     st.caption(f"Webster, NC Radar & Intelligence | {datetime.now().strftime('%A, %b %d %I:%M %p')}")
-with c2:
-    if st.button("🔄 FORCE LIVE UPDATE"):
-        st.cache_data.clear()
-        st.rerun()
 
 # --- TIMESTAMP HACK ---
 ts = int(time.time())
@@ -135,6 +148,7 @@ tab_radar, tab_resorts, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns 
 
 # --- TAB 1: RADAR & DATA (Split View) ---
 with tab_radar:
+    # SPLIT VIEW: Radar (Left) is larger [3] vs Data (Right) [2]
     col_left, col_right = st.columns([3, 2])
     
     # --- LEFT COLUMN: RADAR ---
@@ -151,7 +165,7 @@ with tab_radar:
         euro = get_euro_snow()
         nws = get_nws_text()
         
-        # 1. Euro Model 7-Day Section
+        # 1. Euro Model 7-Day Forecast (Loop)
         st.markdown("### 🇪🇺 7-Day Forecast (ECMWF)")
         if euro:
             for i in range(len(euro['time'])):
