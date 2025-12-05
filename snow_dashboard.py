@@ -13,15 +13,14 @@ LOCATION_NAME = "Webster, NC"
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
 
-# --- 1. OFFICIAL LOGO (Top Left) ---
+# --- 1. OFFICIAL LOGO ---
 st.logo("https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png", 
         link="https://weather.gov", 
         icon_image="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png")
 
-# --- CUSTOM CSS (Snow Storm Theme) ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* 1. Main Background */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), 
                           url('https://images.unsplash.com/photo-1516431883744-dc60fa69f927?q=80&w=2070&auto=format&fit=crop');
@@ -30,8 +29,6 @@ st.markdown("""
         background-attachment: fixed;
         color: #ffffff;
     }
-    
-    /* 2. Glass Effect for Data Boxes */
     div[data-testid="stMetric"] {
         background-color: rgba(20, 30, 40, 0.75);
         border: 1px solid rgba(255, 255, 255, 0.2);
@@ -39,47 +36,39 @@ st.markdown("""
         padding: 15px;
         border-radius: 10px;
         color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
-    
-    /* 3. Images Styling */
-    img {
-        border: 2px solid #a6c9ff;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-    }
-    
-    /* 4. Buttons */
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        background: linear-gradient(90deg, #2c3e50 0%, #4ca1af 100%);
+    /* Alert Box for Wintry Mix */
+    .mix-alert {
+        background-color: #6a1b9a; /* Purple for Mix */
         color: white;
-        border: 1px solid #a6c9ff;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #ab47bc;
+        margin-bottom: 10px;
+        text-align: center;
         font-weight: bold;
     }
-    
-    /* 5. Headers */
-    h1, h2, h3, p, span, div {
-        color: #e0f7fa !important;
-        text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    .ice-alert {
+        background-color: #d81b60; /* Pink for Ice */
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #f48fb1;
+        margin-bottom: 10px;
+        text-align: center;
+        font-weight: bold;
     }
+    img { border: 2px solid #a6c9ff; border-radius: 8px; }
+    h1, h2, h3, p, div { color: #e0f7fa !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR CONTROLS ---
+# --- SIDEBAR ---
 with st.sidebar:
-    # UPDATED: Snoopy Sledding GIF (Direct Link)
     st.image("https://64.media.tumblr.com/f722ffb4624171f3ab2e727913e93ae2/tumblr_p14oecN2Wx1ro8ysbo1_500.gif", caption="Bonnie Lane Snow Patrol")
-    
     st.markdown("### ❄️ Dashboard Controls")
-    
-    if st.button("✨ Let it Snow!"):
-        st.snow()
-    
-    if st.button("🔄 Force Refresh Data"):
-        st.cache_data.clear()
-        st.rerun()
+    if st.button("✨ Let it Snow!"): st.snow()
+    if st.button("🔄 Force Refresh Data"): st.cache_data.clear(); st.rerun()
 
 # --- HEADER ---
 c1, c2 = st.columns([3, 1])
@@ -88,10 +77,9 @@ with c1:
     st.markdown("### *Bonnie Lane Edition*") 
     st.caption(f"Webster, NC Radar & Intelligence | {datetime.now().strftime('%A, %b %d %I:%M %p')}")
 
-# --- TIMESTAMP HACK ---
 ts = int(time.time())
 
-# --- HELPER FUNCTIONS ---
+# --- DATA FUNCTIONS ---
 @st.cache_data(ttl=900)
 def get_nws_text():
     try:
@@ -105,7 +93,8 @@ def get_nws_text():
 def get_euro_snow():
     try:
         url = "https://api.open-meteo.com/v1/forecast"
-        params = {"latitude": LAT, "longitude": LON, "daily": ["snowfall_sum"], 
+        # ADDED 'weather_code' to detect Mix/Ice
+        params = {"latitude": LAT, "longitude": LON, "daily": ["snowfall_sum", "weather_code"], 
                   "timezone": "America/New_York", "precipitation_unit": "inch"}
         return requests.get(url, params=params).json().get('daily', None)
     except: return None
@@ -125,7 +114,14 @@ def get_history_facts():
         return df[df['md'] == today.strftime('%m-%d')]
     except: return None
 
-# --- STREAM RENDERER ---
+# --- HELPER: WMO CODE TRANSLATOR ---
+def get_precip_type(code):
+    # WMO Codes: https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
+    if code in [71, 73, 75, 77, 85, 86]: return "SNOW", "❄️"
+    if code in [66, 67, 56, 57]: return "FREEZING RAIN", "🧊" # Dangerous!
+    if code in [68, 69, 83, 84]: return "WINTRY MIX", "☔❄️"
+    return None, None
+
 def render_stream(title, url, type="youtube"):
     st.subheader(title)
     if type == "youtube":
@@ -146,26 +142,21 @@ def render_stream(title, url, type="youtube"):
 # --- TAB LAYOUT ---
 tab_radar, tab_resorts, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns & Resorts", "📜 History"])
 
-# --- TAB 1: RADAR & DATA (Split View) ---
 with tab_radar:
-    # SPLIT VIEW: Radar (Left) is larger [3] vs Data (Right) [2]
     col_left, col_right = st.columns([3, 2])
     
-    # --- LEFT COLUMN: RADAR ---
     with col_left:
         st.subheader("Doppler Loop")
         st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
                  caption=f"Live Feed | {datetime.now().strftime('%H:%M')}", 
                  use_container_width=True)
 
-    # --- RIGHT COLUMN: DATA ---
     with col_right:
         st.subheader("Forecast Intelligence")
         
         euro = get_euro_snow()
         nws = get_nws_text()
         
-        # 1. Euro Model 7-Day Forecast (Loop)
         st.markdown("### 🇪🇺 7-Day Forecast (ECMWF)")
         if euro:
             for i in range(len(euro['time'])):
@@ -173,10 +164,19 @@ with tab_radar:
                 day_name = day_date.strftime('%A')
                 short_date = day_date.strftime('%b %d')
                 amount = euro['snowfall_sum'][i]
+                w_code = euro['weather_code'][i]
+                p_type, p_icon = get_precip_type(w_code)
                 
+                # RENDER ROW
                 r1, r2 = st.columns([2, 1])
                 with r1:
                     st.write(f"**{day_name}** ({short_date})")
+                    # NEW: Show alert if Mix/Ice is detected
+                    if p_type == "FREEZING RAIN":
+                        st.markdown(f"<div class='ice-alert'>⚠️ ICE STORM</div>", unsafe_allow_html=True)
+                    elif p_type == "WINTRY MIX":
+                        st.markdown(f"<div class='mix-alert'>☔❄️ MIX</div>", unsafe_allow_html=True)
+                        
                 with r2:
                     if amount > 0:
                         st.markdown(f"❄️ **{amount}\"**")
@@ -188,39 +188,35 @@ with tab_radar:
         
         st.divider()
         
-        # 2. NWS Text Section
         st.markdown("### 🇺🇸 NWS Text (Next 24h)")
         if nws:
             found = False
+            # UPDATED: Look for mix keywords
+            mix_keywords = ["snow", "sleet", "freezing", "wintry", "ice"]
+            
             for p in nws[:2]:
-                if "snow" in p['detailedForecast'].lower():
+                text = p['detailedForecast'].lower()
+                if any(x in text for x in mix_keywords):
                     st.info(f"**{p['name']}:** {p['detailedForecast']}")
                     found = True
             if not found:
-                st.success("No snow mentioned in immediate text.")
+                st.success("No winter precip mentioned.")
         else:
             st.write("Loading...")
 
-# --- TAB 2: RESORT STREAMS ---
 with tab_resorts:
     st.subheader("Live Video Streams")
-    
     rc1, rc2 = st.columns(2)
-    
     with rc1:
         render_stream("Sugar Mountain Summit", "https://www.youtube.com/watch?v=gIV_NX2dYow", "youtube")
-    
     with rc2:
         st.subheader("Waynesville Main St")
-        st.markdown("**ResortCams Live Feed**")
-        st.info("ResortCams protects their streams. Click below to watch the live view directly on their site.")
+        st.info("Click below to watch directly on ResortCams.")
         st.link_button("🔴 Watch Live (ResortCams)", "https://www.resortcams.com/webcams/waynesville/")
         st.image("https://www.resortcams.com/wp-content/themes/resortcams/images/logo-resortcams.png", caption="Source: ResortCams.com")
 
-# --- TAB 3: HISTORY ---
 with tab_history:
     st.subheader(f"On {datetime.now().strftime('%B %d')} in History...")
-    
     hist = get_history_facts()
     if hist is not None and not hist.empty:
         max_snow = hist['snowfall_sum'].max()
@@ -228,7 +224,6 @@ with tab_history:
         m1, m2 = st.columns(2)
         m1.metric("Record Snow", f"{max_snow}\"")
         m2.metric("Years w/ Snow", f"{snowy_years}/10")
-        
         fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
         fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=250, margin=dict(l=0,r=0,t=0,b=0))
         st.plotly_chart(fig, use_container_width=True)
