@@ -550,13 +550,14 @@ if seasonal_stats and season_ok:
     """, unsafe_allow_html=True)
 
 # --- MAIN TABS ---
-tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, tab_history, tab_export = st.tabs([
+tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, tab_santa, tab_history, tab_export = st.tabs([
     "🏠 Overview", 
     "⏰ Hourly", 
     "📅 7-Day", 
     "⚖️ Compare",
     "📡 Radar", 
-    "🎥 Webcams", 
+    "🎥 Webcams",
+    "🎅 Santa",
     "📜 History",
     "💾 Export"
 ])
@@ -935,7 +936,82 @@ with tab_webcams:
     st.markdown("---")
     st.info("💡 Tip: These webcams update continuously. Refresh the page to see the latest conditions.")
 
-# --- TAB 7: HISTORY ---
+# --- TAB 7: SANTA TRACKER ---
+with tab_santa:
+    st.subheader("🎅 NORAD Santa Tracker")
+    st.caption("Track Santa's journey around the world on Christmas Eve!")
+    
+    # Check if it's close to Christmas
+    today = datetime.now()
+    christmas = datetime(today.year, 12, 25)
+    days_until_christmas = (christmas - today).days
+    
+    if days_until_christmas > 0:
+        st.info(f"🎄 **{days_until_christmas} days until Christmas!** Santa will begin his journey on Christmas Eve (December 24th).")
+    elif days_until_christmas == 0:
+        st.success("🎅 **It's Christmas Day!** Check if Santa visited Webster last night!")
+    else:
+        days_since_christmas = abs(days_until_christmas)
+        st.info(f"🎄 Christmas was {days_since_christmas} days ago. Santa tracker will be active again next December 24th!")
+    
+    # Add some festive stats
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("🎁 Days to Christmas", f"{max(0, days_until_christmas)}")
+    
+    with col2:
+        if euro_valley_ok and euro_valley:
+            # Check if there's snow in the Christmas forecast
+            christmas_snow = 0
+            for i in range(len(euro_valley['time'])):
+                forecast_date = pd.to_datetime(euro_valley['time'][i])
+                if forecast_date.month == 12 and forecast_date.day == 25:
+                    christmas_snow = euro_valley['snowfall_sum'][i]
+                    break
+            st.metric("❄️ Christmas Snow Forecast", f"{christmas_snow:.1f}\"")
+        else:
+            st.metric("❄️ Christmas Snow", "Loading...")
+    
+    with col3:
+        # Show if we've had snow this season for a White Christmas potential
+        if season_ok and season_data:
+            st.metric("⛄ Snow Days This Season", season_data['days_with_snow'])
+    
+    st.markdown("---")
+    
+    # NORAD Santa Tracker iframe
+    st.markdown("### 🌍 Live Santa Tracker")
+    
+    # Create the iframe embed
+    st.components.v1.iframe(
+        "https://www.noradsanta.org/en/map",
+        height=800,
+        scrolling=True
+    )
+    
+    st.markdown("---")
+    
+    # Fun facts section
+    with st.expander("🎅 Santa Tracker Fun Facts"):
+        st.markdown("""
+        **About NORAD Tracks Santa:**
+        - NORAD (North American Aerospace Defense Command) has been tracking Santa since 1955
+        - It started by accident when a department store misprinted a phone number, and kids called NORAD instead!
+        - NORAD uses radar, satellites, Santa Cams, and fighter jets to track Santa
+        - Santa travels at approximately 650 miles per SECOND to visit all children in one night
+        - Santa's sleigh must be able to carry over 60,000 tons of toys
+        
+        **Webster, NC Snow History on Christmas:**
+        - Check the History tab to see historical Christmas Day snowfall data!
+        - White Christmases are magical in the mountains of North Carolina
+        """)
+    
+    # Link to official site
+    st.markdown("---")
+    st.markdown("🔗 **Visit the official site:** [NORAD Tracks Santa](https://www.noradsanta.org/)")
+
+# --- TAB 8: HISTORY ---
 with tab_history:
     st.subheader("📜 Historical Snowfall Analysis")
     
@@ -1053,7 +1129,7 @@ with tab_history:
     else:
         st.error("❌ Unable to load historical data")
 
-# --- TAB 8: EXPORT ---
+# --- TAB 9: EXPORT ---
 with tab_export:
     st.subheader("💾 Export Data & Reports")
     st.caption("Download forecasts and historical data for offline analysis")
