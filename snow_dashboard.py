@@ -14,14 +14,10 @@ LON_MTN = -83.0620
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
 
-# --- OFFICIAL LOGO ---
-st.logo("https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png", 
-        link="https://weather.gov", 
-        icon_image="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png")
-
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
+    /* 1. Main Background */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), 
                           url('https://images.unsplash.com/photo-1516431883744-dc60fa69f927?q=80&w=2070&auto=format&fit=crop');
@@ -30,14 +26,28 @@ st.markdown("""
         background-attachment: fixed;
         color: #ffffff;
     }
-    div[data-testid="stMetric"] {
+    
+    /* 2. Glass Cards */
+    .glass-card {
         background-color: rgba(20, 30, 40, 0.75);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(5px);
-        padding: 15px;
-        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        border-radius: 12px;
         color: white;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
+    
+    /* 3. Metric Boxes */
+    div[data-testid="stMetric"] {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* 4. Alert Banners */
     .alert-box {
         padding: 15px;
         border-radius: 8px;
@@ -48,8 +58,12 @@ st.markdown("""
     .alert-purple { background-color: #5E35B1; border-left: 10px solid #B39DDB; }
     .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }
     .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; }
-    img { border: 2px solid #a6c9ff; border-radius: 8px; }
-    h1, h2, h3, p, div { color: #e0f7fa !important; }
+    
+    /* 5. Headers & Images */
+    img { border: 2px solid #a6c9ff; border-radius: 10px; }
+    h1, h2, h3, h4, p, div { color: #e0f7fa !important; }
+    
+    /* 6. Clean Divider */
     hr { margin-top: 5px; margin-bottom: 5px; border-color: #444; }
 </style>
 """, unsafe_allow_html=True)
@@ -70,7 +84,7 @@ with st.sidebar:
 c1, c2 = st.columns([4, 1])
 with c1:
     st.title("❄️ Stephanie's Snow Forecaster")
-    st.markdown("#### *Bonnie Lane Edition*")
+    st.markdown("#### *Bonnie Lane Edition*") 
     st.caption(f"Webster, NC Radar & Intelligence | {nc_time.strftime('%A, %b %d %I:%M %p')}")
 
 ts = int(time.time())
@@ -93,6 +107,7 @@ def get_nws_text():
         return f['properties']['periods']
     except: return []
 
+# UPDATED: Now accepts arguments so we can check both Valley and Mountain
 @st.cache_data(ttl=3600)
 def get_euro_snow(target_lat, target_lon):
     try:
@@ -140,14 +155,17 @@ tab_radar, tab_webcams, tab_history = st.tabs(["📡 Radar & Data", "🎥 Webcam
 
 # --- TAB 1: RADAR & DATA ---
 with tab_radar:
+    # 60% Radar / 40% Data split
     col_left, col_right = st.columns([1.5, 1])
     
+    # --- LEFT: RADAR ---
     with col_left:
         st.markdown("### Doppler Loop")
         st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
                  caption=f"Live Feed | {nc_time.strftime('%H:%M %p')}", 
                  use_container_width=True)
 
+    # --- RIGHT: INTELLIGENCE ---
     with col_right:
         st.markdown("### Forecast Intelligence")
         
@@ -155,8 +173,10 @@ with tab_radar:
         euro_mtn = get_euro_snow(LAT_MTN, LON_MTN)
         nws = get_nws_text()
         
+        # 1. European Model Card (Comparison)
         with st.container():
             st.markdown("**🇪🇺 7-Day Snow Outlook (ECMWF)**")
+            # Table Header
             h1, h2, h3 = st.columns([2, 1, 1])
             h1.caption("Date")
             h2.caption("🏠 Valley")
@@ -168,21 +188,28 @@ with tab_radar:
                     day_date = pd.to_datetime(euro_valley['time'][i])
                     day_name = day_date.strftime('%A')
                     short_date = day_date.strftime('%b %d')
+                    
                     val_amt = euro_valley['snowfall_sum'][i]
                     mtn_amt = euro_mtn['snowfall_sum'][i]
                     
                     r1, r2, r3 = st.columns([2, 1, 1])
                     r1.write(f"**{day_name[:3]}** {short_date}")
+                    
+                    # Valley Data
                     if val_amt > 0: r2.markdown(f"**❄️ {val_amt}\"**")
                     else: r2.write(f"{val_amt}\"")
+                    
+                    # Mountain Data
                     if mtn_amt > 0: r3.markdown(f"**❄️ {mtn_amt}\"**")
                     else: r3.write(f"{mtn_amt}\"")
+                    
                     st.markdown("""<hr style="margin:2px; opacity:0.3">""", unsafe_allow_html=True)
             else:
                 st.write("Loading model data...")
 
         st.divider()
 
+        # 2. NWS Text Card
         with st.container():
             st.markdown("**🇺🇸 Official NWS Text (Valley)**")
             if nws:
@@ -193,26 +220,23 @@ with tab_radar:
                         st.info(f"**{p['name']}:** {p['detailedForecast']}")
                         found = True
                 if not found: 
-                    st.success("No snow mentioned in immediate forecast.")
+                    st.success("No snow mentioned in immediate text forecast.")
             else:
                 st.write("Loading...")
 
-# --- TAB 2: WEBCAMS ---
+# --- TAB 2: WEBCAMS (Cleaned) ---
 with tab_webcams:
-    st.subheader("Live Regional Views")
+    st.subheader("Live Regional Views (YouTube)")
+    
     c1, c2 = st.columns(2)
     
     with c1:
         st.markdown("**1. Silver Creek (Lake Glenville)**")
         st.video("https://youtu.be/l_sNHKVUp2c", autoplay=True, muted=True)
+        
+    with c2:
         st.markdown("**2. Sugar Mountain Resort**")
         st.video("https://www.youtube.com/watch?v=gIV_NX2dYow", autoplay=True, muted=True)
-
-    with c2:
-        st.markdown("**3. Beech Mountain Parkway**")
-        st.video("https://www.youtube.com/watch?v=gIV_NX2dYow", autoplay=True, muted=True)
-        st.markdown("**4. Blowing Rock (Main St)**")
-        st.video("https://www.youtube.com/watch?v=Hfi4zE01DVs", autoplay=True, muted=True)
 
 # --- TAB 3: HISTORY ---
 with tab_history:
@@ -227,7 +251,6 @@ with tab_history:
         m2.metric("Years w/ Snow", f"{snowy_years}/10")
         
         fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
-        # FIXED: Ensure strings are properly closed
         fig.update_layout(
             plot_bgcolor='rgba(0,0,0,0)', 
             paper_bgcolor='rgba(0,0,0,0)', 
