@@ -12,7 +12,7 @@ LOCATION_NAME = "Webster, NC"
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
 
-# --- CUSTOM CSS (Polished) ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     /* 1. Main Background */
@@ -66,6 +66,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- TIMEZONE FIX ---
+# We use Pandas to get the current time specifically for Eastern Time (US/Eastern)
+nc_time = pd.Timestamp.now(tz='US/Eastern')
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.image("https://64.media.tumblr.com/f722ffb4624171f3ab2e727913e93ae2/tumblr_p14oecN2Wx1ro8ysbo1_500.gif", caption="Bonnie Lane Snow Patrol")
@@ -73,13 +77,16 @@ with st.sidebar:
     if st.button("✨ Let it Snow!"): st.snow()
     if st.button("🔄 Force Refresh"): st.cache_data.clear(); st.rerun()
     st.markdown("---")
-    st.caption(f"Last Updated:\n{datetime.now().strftime('%I:%M:%S %p')}")
+    # Updated to use NC Time
+    st.caption(f"Last Updated:\n{nc_time.strftime('%I:%M:%S %p')}")
 
 # --- HEADER ---
 c1, c2 = st.columns([4, 1])
 with c1:
     st.title("❄️ Stephanie's Snow Forecaster")
-    st.markdown("#### *Bonnie Lane Edition*") 
+    st.markdown("#### *Bonnie Lane Edition*")
+    # Updated to use NC Time
+    st.caption(f"Webster, NC Radar & Intelligence | {nc_time.strftime('%A, %b %d %I:%M %p')}")
 
 ts = int(time.time())
 
@@ -148,83 +155,18 @@ tab_radar, tab_history = st.tabs(["📡 Radar & Data", "📜 History"])
 
 # --- TAB 1: RADAR & DATA ---
 with tab_radar:
-    # 60% Radar / 40% Data split for better balance
     col_left, col_right = st.columns([1.5, 1])
     
-    # --- LEFT: RADAR ---
     with col_left:
         st.markdown("### Doppler Loop")
         st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
-                 caption=f"Live Feed | {datetime.now().strftime('%H:%M')}", 
+                 caption=f"Live Feed | {nc_time.strftime('%H:%M %p')}", 
                  use_container_width=True)
 
-    # --- RIGHT: INTELLIGENCE ---
     with col_right:
         st.markdown("### Forecast Intelligence")
         
-        # We wrap the data in a "glass card" for a cleaner look
         euro = get_euro_snow()
         nws = get_nws_text()
         
-        # 1. European Model Card
         with st.container():
-            st.markdown("**🇪🇺 7-Day Snow Outlook (ECMWF)**")
-            if euro:
-                for i in range(len(euro['time'])):
-                    day_date = pd.to_datetime(euro['time'][i])
-                    day_name = day_date.strftime('%A')
-                    short_date = day_date.strftime('%b %d')
-                    amount = euro['snowfall_sum'][i]
-                    
-                    # Layout: Day | Amount
-                    c_day, c_amt = st.columns([2, 1])
-                    c_day.write(f"{day_name} ({short_date})")
-                    if amount > 0:
-                        c_amt.markdown(f"**❄️ {amount}\"**")
-                    else:
-                        c_amt.write(f"{amount}\"")
-                    st.markdown("---")
-            else:
-                st.write("Loading data...")
-
-        st.divider()
-
-        # 2. NWS Text Card
-        with st.container():
-            st.markdown("**🇺🇸 Official NWS Text**")
-            if nws:
-                found = False
-                for p in nws[:3]:
-                    text = p['detailedForecast'].lower()
-                    if alerts or "snow" in text or "sleet" in text or "ice" in text or "wintry" in text:
-                        st.info(f"**{p['name']}:** {p['detailedForecast']}")
-                        found = True
-                if not found: 
-                    st.success("No snow mentioned in immediate text forecast.")
-            else:
-                st.write("Loading...")
-
-# --- TAB 2: HISTORY ---
-with tab_history:
-    st.subheader(f"On {datetime.now().strftime('%B %d')} in History...")
-    hist = get_history_facts()
-    if hist is not None and not hist.empty:
-        max_snow = hist['snowfall_sum'].max()
-        snowy_years = len(hist[hist['snowfall_sum'] > 0])
-        
-        m1, m2 = st.columns(2)
-        m1.metric("Record Snow", f"{max_snow}\"")
-        m2.metric("Years w/ Snow", f"{snowy_years}/10")
-        
-        fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
-        fig.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)', 
-            paper_bgcolor='rgba(0,0,0,0)', 
-            font=dict(color='white'), 
-            height=300, 
-            margin=dict(l=0,r=0,t=0,b=0),
-            yaxis_title="Inches"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write("Fetching archives...")
