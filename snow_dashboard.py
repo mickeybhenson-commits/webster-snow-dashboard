@@ -1025,40 +1025,52 @@ with tab_cartier:
         else:
             st.info("🐕 No snow in the 7-day forecast, but Cartier is still ready for adventures!")
 
-# --- TAB 8: CHRISTMAS VACATION MOVIE ---
+# --- TAB 8: PRIVATE EYES MOVIE ---
 with tab_movie:
     st.markdown("""
     <div class="glass-card">
-        <h2 style="text-align: center;">🎬 National Lampoon's Christmas Vacation 🎄</h2>
-        <p style="text-align: center; font-size: 1.1em;">The perfect movie for a snowy day on Bonnie Lane!</p>
+        <h2 style="text-align: center;">🎬 Private Eyes (1980) 🏰</h2>
+        <p style="text-align: center; font-size: 1.1em;">A comedy mystery filmed at the magnificent Biltmore Estate!</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("---")
     
     # Embed the movie
-    st.components.v1.iframe(
-        "https://archive.org/embed/Christmas_Story_and_National_Lampoon_Christmas_Vacation?start=5440",
-        height=600,
-        scrolling=False
-    )
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        st.video("https://youtu.be/a5bNNkSj1O4?si=C5vB8yz9NLngjchp")
     
     st.markdown("---")
     
-    # Movie info and fun facts
+    # Movie info and Biltmore connection
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("### 🎥 Movie Info")
         st.markdown("""
-        **National Lampoon's Christmas Vacation** (1989)
+        **Private Eyes** (1980)
         
-        - **Starring:** Chevy Chase, Beverly D'Angelo
-        - **Director:** Jeremiah S. Chechik
-        - **Runtime:** 97 minutes
-        - **Rating:** PG-13
+        - **Starring:** Tim Conway, Don Knotts
+        - **Director:** Lang Elliott
+        - **Runtime:** 91 minutes
+        - **Rating:** PG
+        - **Location:** Filmed at Biltmore Estate, Asheville, NC
         
-        The third installment in the Vacation film series follows the Griswold family's attempts to have a perfect family Christmas.
+        Scotland Yard sends a bumbling pair to check on foul play at a mansion close to the house that inspired the Sherlock Holmes stories. The movie showcases the stunning Biltmore House throughout!
+        """)
+        
+        st.markdown("### 🏰 Biltmore Estate Facts")
+        st.markdown("""
+        **America's Largest Home:**
+        - **Built:** 1889-1895
+        - **Rooms:** 250 (35 bedrooms, 43 bathrooms)
+        - **Square Footage:** 178,926 sq ft
+        - **Owner:** George Vanderbilt II
+        - **Architect:** Richard Morris Hunt
+        - **Distance from Webster:** ~50 miles
+        
+        The Biltmore Estate is a National Historic Landmark and remains the largest privately-owned house in the United States!
         """)
     
     with col2:
@@ -1081,25 +1093,72 @@ with tab_movie:
                 for day in movie_days:
                     st.info(f"**{day['day']}, {day['date']}** - {day['snow']:.1f}\" ❄️")
             else:
-                st.info("Any day is a good day for Christmas Vacation!")
+                st.info("Any day is a good day for Private Eyes!")
         else:
-            st.info("Any day is a good day for Christmas Vacation!")
+            st.info("Any day is a good day for Private Eyes!")
+        
+        st.markdown("---")
+        st.markdown("### 🎄 Biltmore at Christmas")
+        st.markdown("""
+        The Biltmore Estate transforms into a winter wonderland during the holidays:
+        
+        - 🎄 **55+ Christmas trees** throughout the house
+        - 🕯️ **Thousands of lights** illuminate the estate
+        - 🎵 **Live music** and holiday events
+        - ❄️ **Winter in the gardens** - stunning even in snow
+        - 🍷 **Biltmore Winery** open year-round
+        
+        **Pro Tip:** The estate is especially magical after a fresh snowfall - just like Webster!
+        """)
     
     st.markdown("---")
     
-    # Fun quotes
-    with st.expander("💬 Classic Quotes"):
+    # Biltmore Trivia
+    with st.expander("🏰 Biltmore House Trivia & Fun Facts"):
         st.markdown("""
-        **Some of the best lines from the movie:**
+        **Did You Know?**
         
-        - "We're gonna have the hap-hap-happiest Christmas since Bing Crosby tap-danced with Danny f***ing Kaye!"
-        - "Merry Christmas! Shitter was full!"
-        - "Hallelujah! Holy shit! Where's the Tylenol?"
-        - "Clark, stop it! I don't want to spend the holidays dead!"
-        - "Can I refill your eggnog for you? Get you something to eat? Drive you out to the middle of nowhere and leave you for dead?"
+        📍 **Location Connection:**
+        - Biltmore is only ~50 miles from Webster, NC on Bonnie Lane!
+        - Both areas get beautiful mountain snowfall in winter
+        - Perfect day trip destination from your location
         
-        🎄 **Perfect for:** Snowy evenings, family gatherings, and getting into the Christmas spirit!
+        🎬 **Movies Filmed at Biltmore:**
+        - *Private Eyes* (1980) - Tim Conway & Don Knotts
+        - *The Last of the Mohicans* (1992) - Daniel Day-Lewis
+        - *Forrest Gump* (1994) - Some scenes
+        - *Richie Rich* (1994) - Macaulay Culkin
+        - *Hannibal* (2001) - Anthony Hopkins
+        
+        🏗️ **Construction Facts:**
+        - Took **6 years** to build (1889-1895)
+        - Required **1,000+ workers** at peak construction
+        - Used **millions of bricks** made on-site
+        - Features a **70,000-gallon indoor swimming pool**
+        - Has its own **bowling alley** in the basement
+        
+        🌲 **The Grounds:**
+        - **8,000 acres** of estate (originally 125,000!)
+        - Landscaped by **Frederick Law Olmsted** (designer of Central Park)
+        - Estate includes working farm, winery, and gardens
+        
+        💰 **Cost:**
+        - Original construction cost: **$6 million** (1895)
+        - Equivalent to about **$200+ million today**
+        
+        👻 **Ghost Stories:**
+        - Many visitors report paranormal experiences
+        - George Vanderbilt's presence allegedly felt in the library
+        - The pool area has numerous ghost sightings
+        
+        🎄 **Christmas Tradition:**
+        - Biltmore's Christmas celebration tradition started in **1895**
+        - George Vanderbilt opened the house to friends and family on Christmas Eve 1895
+        - Today's Christmas at Biltmore attracts **thousands of visitors**
         """)
+    
+    st.markdown("---")
+    st.info("🚗 **Local Tip:** When there's snow in Webster, there's likely snow at Biltmore too - making it even more spectacular to visit!")
 
 # --- TAB 9: SANTA TRACKER ---
 with tab_santa:
