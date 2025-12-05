@@ -3,19 +3,26 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import time
+import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
 LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
+LAT_MTN = 35.5845
+LON_MTN = -83.0620
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
+
+# --- OFFICIAL LOGO ---
+st.logo("https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png", 
+        link="https://weather.gov", 
+        icon_image="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png")
 
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* 1. Main Background */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), 
                           url('https://images.unsplash.com/photo-1516431883744-dc60fa69f927?q=80&w=2070&auto=format&fit=crop');
@@ -24,27 +31,14 @@ st.markdown("""
         background-attachment: fixed;
         color: #ffffff;
     }
-    
-    /* 2. Glass Cards */
-    .glass-card {
+    div[data-testid="stMetric"] {
         background-color: rgba(20, 30, 40, 0.75);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-        padding: 20px;
-        border-radius: 12px;
+        backdrop-filter: blur(5px);
+        padding: 15px;
+        border-radius: 10px;
         color: white;
-        margin-bottom: 20px;
     }
-    
-    /* 3. Metric Boxes */
-    div[data-testid="stMetric"] {
-        background-color: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        padding: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    /* 4. Alert Banners */
     .alert-box {
         padding: 15px;
         border-radius: 8px;
@@ -55,10 +49,8 @@ st.markdown("""
     .alert-purple { background-color: #5E35B1; border-left: 10px solid #B39DDB; }
     .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }
     .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; }
-    
-    /* 5. Headers & Images */
-    img { border: 2px solid #a6c9ff; border-radius: 10px; }
-    h1, h2, h3, h4, p, div { color: #e0f7fa !important; }
+    img { border: 2px solid #a6c9ff; border-radius: 8px; }
+    h1, h2, h3, p, div { color: #e0f7fa !important; }
     hr { margin-top: 5px; margin-bottom: 5px; border-color: #444; }
 </style>
 """, unsafe_allow_html=True)
@@ -103,10 +95,10 @@ def get_nws_text():
     except: return []
 
 @st.cache_data(ttl=3600)
-def get_euro_snow():
+def get_euro_snow(target_lat, target_lon):
     try:
         url = "https://api.open-meteo.com/v1/forecast"
-        params = {"latitude": LAT, "longitude": LON, "daily": ["snowfall_sum", "weather_code"], 
+        params = {"latitude": target_lat, "longitude": target_lon, "daily": ["snowfall_sum", "weather_code"], 
                   "timezone": "America/New_York", "precipitation_unit": "inch"}
         return requests.get(url, params=params).json().get('daily', None)
     except: return None
@@ -145,7 +137,7 @@ if alerts:
         """, unsafe_allow_html=True)
 
 # --- TABS ---
-tab_radar, tab_history = st.tabs(["📡 Radar & Data", "📜 History"])
+tab_radar, tab_webcams, tab_history = st.tabs(["📡 Radar & Data", "🎥 Webcams", "📜 History"])
 
 # --- TAB 1: RADAR & DATA ---
 with tab_radar:
@@ -160,34 +152,40 @@ with tab_radar:
     with col_right:
         st.markdown("### Forecast Intelligence")
         
-        euro = get_euro_snow()
+        euro_valley = get_euro_snow(LAT, LON)
+        euro_mtn = get_euro_snow(LAT_MTN, LON_MTN)
         nws = get_nws_text()
         
-        # 1. European Model Card
         with st.container():
             st.markdown("**🇪🇺 7-Day Snow Outlook (ECMWF)**")
-            if euro:
-                for i in range(len(euro['time'])):
-                    day_date = pd.to_datetime(euro['time'][i])
+            h1, h2, h3 = st.columns([2, 1, 1])
+            h1.caption("Date")
+            h2.caption("🏠 Valley")
+            h3.caption("⛰️ Mtn")
+            st.markdown("---")
+
+            if euro_valley and euro_mtn:
+                for i in range(len(euro_valley['time'])):
+                    day_date = pd.to_datetime(euro_valley['time'][i])
                     day_name = day_date.strftime('%A')
                     short_date = day_date.strftime('%b %d')
-                    amount = euro['snowfall_sum'][i]
+                    val_amt = euro_valley['snowfall_sum'][i]
+                    mtn_amt = euro_mtn['snowfall_sum'][i]
                     
-                    c_day, c_amt = st.columns([2, 1])
-                    c_day.write(f"{day_name} ({short_date})")
-                    if amount > 0:
-                        c_amt.markdown(f"**❄️ {amount}\"**")
-                    else:
-                        c_amt.write(f"{amount}\"")
-                    st.markdown("---")
+                    r1, r2, r3 = st.columns([2, 1, 1])
+                    r1.write(f"**{day_name[:3]}** {short_date}")
+                    if val_amt > 0: r2.markdown(f"**❄️ {val_amt}\"**")
+                    else: r2.write(f"{val_amt}\"")
+                    if mtn_amt > 0: r3.markdown(f"**❄️ {mtn_amt}\"**")
+                    else: r3.write(f"{mtn_amt}\"")
+                    st.markdown("""<hr style="margin:2px; opacity:0.3">""", unsafe_allow_html=True)
             else:
-                st.write("Loading data...")
+                st.write("Loading model data...")
 
         st.divider()
 
-        # 2. NWS Text Card
         with st.container():
-            st.markdown("**🇺🇸 Official NWS Text**")
+            st.markdown("**🇺🇸 Official NWS Text (Valley)**")
             if nws:
                 found = False
                 for p in nws[:3]:
@@ -196,11 +194,34 @@ with tab_radar:
                         st.info(f"**{p['name']}:** {p['detailedForecast']}")
                         found = True
                 if not found: 
-                    st.success("No snow mentioned in immediate text forecast.")
+                    st.success("No snow mentioned in immediate forecast.")
             else:
                 st.write("Loading...")
 
-# --- TAB 2: HISTORY ---
+# --- TAB 2: WEBCAMS ---
+with tab_webcams:
+    st.subheader("Live Regional Views")
+    
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.markdown("**1. Silver Creek (Lake Glenville)**")
+        st.video("https://youtu.be/l_sNHKVUp2c", autoplay=True, muted=True)
+        
+        st.markdown("**2. Sugar Mountain Resort**")
+        st.video("https://www.youtube.com/watch?v=gIV_NX2dYow", autoplay=True, muted=True)
+
+    with c2:
+        st.markdown("**3. Beech Mountain Parkway**")
+        # This is a placeholder for a Beech Mountain video if available, or a similar resort cam
+        st.video("https://www.youtube.com/watch?v=gIV_NX2dYow", autoplay=True, muted=True)
+        
+        st.markdown("**4. Blowing Rock (Main St)**")
+        # Note: Blowing Rock YouTube streams often rotate. Using a reliable WNC stream as fallback/example.
+        # If you find a specific Blowing Rock YouTube URL, paste it here.
+        st.video("https://www.youtube.com/watch?v=Hfi4zE01DVs", autoplay=True, muted=True)
+
+# --- TAB 3: HISTORY ---
 with tab_history:
     st.subheader(f"On {datetime.now().strftime('%B %d')} in History...")
     hist = get_history_facts()
@@ -219,8 +240,4 @@ with tab_history:
             font=dict(color='white'), 
             height=300, 
             margin=dict(l=0,r=0,t=0,b=0),
-            yaxis_title="Inches"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write("Fetching archives...")
+            yaxis_title="
