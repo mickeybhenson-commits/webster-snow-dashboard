@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import time
-import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
@@ -112,23 +111,6 @@ def get_history_facts():
         return df[df['md'] == today.strftime('%m-%d')]
     except: return None
 
-def render_stream(title, url, type="youtube"):
-    st.subheader(title)
-    if type == "youtube":
-        st.video(url, autoplay=True, muted=True)
-        st.caption("🔴 YouTube Live Feed")
-    elif type == "hls":
-        video_html = f"""
-        <link href="https://vjs.zencdn.net/8.0.4/video-js.css" rel="stylesheet" />
-        <script src="https://vjs.zencdn.net/8.0.4/video.min.js"></script>
-        <video id="vid-{title.split()[0]}" class="video-js vjs-default-skin vjs-big-play-centered" 
-               controls preload="auto" width="100%" height="350" data-setup='{{}}' autoplay muted>
-            <source src="{url}" type="application/x-mpegURL">
-        </video>
-        """
-        components.html(video_html, height=400)
-        st.caption(f"🔴 Custom HLS Stream")
-
 # --- ALERT BANNER ---
 alerts = get_nws_alerts()
 if alerts:
@@ -148,8 +130,8 @@ if alerts:
         </div>
         """, unsafe_allow_html=True)
 
-# --- TABS ---
-tab_radar, tab_resorts, tab_nws, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns & Resorts", "📝 NWS Briefing Room", "📜 History"])
+# --- TABS (Simplified) ---
+tab_radar, tab_history = st.tabs(["📡 Radar & Data", "📜 History"])
 
 # --- TAB 1: RADAR ---
 with tab_radar:
@@ -179,49 +161,16 @@ with tab_radar:
         st.markdown("### 🇺🇸 NWS Text (Next 24h)")
         if nws:
             found = False
-            # UPDATED: Scan the first 3 periods (Next 36 hours) to catch overnight mix
+            # Check next 3 periods for ANY mention of winter words
             for p in nws[:3]:
-                # Force show if there is an alert active
                 text = p['detailedForecast'].lower()
-                if alerts or "snow" in text or "sleet" in text or "ice" in text:
+                if alerts or "snow" in text or "sleet" in text or "ice" in text or "wintry" in text:
                     st.info(f"**{p['name']}:** {p['detailedForecast']}")
                     found = True
             if not found: st.success("No snow in Webster (Valley Floor).")
         else: st.write("Loading...")
 
-# --- TAB 2: RESORTS ---
-with tab_resorts:
-    st.subheader("Live Video Streams")
-    rc1, rc2 = st.columns(2)
-    with rc1:
-        render_stream("Sugar Mountain Summit", "https://www.youtube.com/watch?v=gIV_NX2dYow", "youtube")
-    with rc2:
-        st.subheader("Waynesville Main St")
-        st.info("Click below to watch directly on ResortCams.")
-        st.link_button("🔴 Watch Live (ResortCams)", "https://www.resortcams.com/webcams/waynesville/")
-        st.image("https://www.resortcams.com/wp-content/themes/resortcams/images/logo-resortcams.png", caption="Source: ResortCams.com")
-
-# --- TAB 3: NWS BRIEFING ROOM (UPDATED) ---
-with tab_nws:
-    st.subheader("📝 Official NWS Briefing Slides")
-    st.caption("These are the live slides from NWS Greenville-Spartanburg.")
-    
-    # UPDATED URLs: These are the standard "Weather Story" links for GSP
-    nws1, nws2 = st.columns(2)
-    
-    with nws1:
-        st.markdown("**1. Weather Story**")
-        st.image(f"https://www.weather.gov/images/gsp/WxStory1.png?t={ts}", caption="Latest Graphic", use_container_width=True)
-    
-    with nws2:
-        st.markdown("**2. Winter Weather Outlook**")
-        st.image(f"https://www.weather.gov/images/gsp/WxStory2.png?t={ts}", caption="Winter Storm Impacts", use_container_width=True)
-        
-    st.divider()
-    st.markdown("**3. Regional Radar View**")
-    st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", caption="Regional Loop", use_container_width=True)
-
-# --- TAB 4: HISTORY ---
+# --- TAB 2: HISTORY ---
 with tab_history:
     st.subheader(f"On {datetime.now().strftime('%B %d')} in History...")
     hist = get_history_facts()
