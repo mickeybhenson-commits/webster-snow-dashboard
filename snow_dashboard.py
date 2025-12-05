@@ -567,6 +567,13 @@ tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, 
 with tab_overview:
     st.subheader("Quick Snapshot")
     
+    # Add background Christmas jazz music using HTML audio element
+    st.markdown("""
+    <audio autoplay loop style="display:none;">
+        <source src="https://www.bensound.com/bensound-music/bensound-jazzyfrenchy.mp3" type="audio/mpeg">
+    </audio>
+    """, unsafe_allow_html=True)
+    
     # Current conditions
     col1, col2, col3, col4 = st.columns(4)
     
