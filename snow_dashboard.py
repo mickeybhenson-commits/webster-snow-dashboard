@@ -149,9 +149,9 @@ if alerts:
         """, unsafe_allow_html=True)
 
 # --- TABS ---
-# ADDED "NWS Briefing Room" as the 4th tab
 tab_radar, tab_resorts, tab_nws, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns & Resorts", "📝 NWS Briefing Room", "📜 History"])
 
+# --- TAB 1: RADAR ---
 with tab_radar:
     col_left, col_right = st.columns([3, 2])
     with col_left:
@@ -186,6 +186,7 @@ with tab_radar:
             if not found: st.success("No snow mentioned in immediate text.")
         else: st.write("Loading...")
 
+# --- TAB 2: RESORTS ---
 with tab_resorts:
     st.subheader("Live Video Streams")
     rc1, rc2 = st.columns(2)
@@ -197,17 +198,31 @@ with tab_resorts:
         st.link_button("🔴 Watch Live (ResortCams)", "https://www.resortcams.com/webcams/waynesville/")
         st.image("https://www.resortcams.com/wp-content/themes/resortcams/images/logo-resortcams.png", caption="Source: ResortCams.com")
 
-# --- NEW: NWS BRIEFING ROOM ---
+# --- TAB 3: NWS BRIEFING ROOM (FIXED) ---
 with tab_nws:
     st.subheader("📝 Official NWS Briefing Slides")
     st.caption("These are the exact slides the Meteorologists at Greenville-Spartanburg use to brief the public. They update live.")
-    
-    # These URLs pull the "Graphicast" images directly from the NWS GSP server
-    # Slide 1: usually the Main Weather Story (The Infographic you liked)
-    # Slide 2: usually the Hazards Map (The Purple Map you liked)
     
     nws1, nws2 = st.columns(2)
     
     with nws1:
         st.markdown("**1. Current Weather Story**")
-        st.image(f"https://www.weather.gov/images/gsp/graphicast/image1.png?t={ts}", caption
+        st.image(f"https://www.weather.gov/images/gsp/graphicast/image1.png?t={ts}", caption="NWS GSP Weather Story", use_container_width=True)
+    
+    with nws2:
+        st.markdown("**2. Hazards Map**")
+        st.image(f"https://www.weather.gov/images/gsp/graphicast/image2.png?t={ts}", caption="Active Watches/Warnings Map", use_container_width=True)
+        
+    st.divider()
+    st.markdown("**3. Extended Outlook**")
+    st.image(f"https://www.weather.gov/images/gsp/graphicast/image3.png?t={ts}", caption="Looking Ahead", use_container_width=True)
+
+# --- TAB 4: HISTORY ---
+with tab_history:
+    st.subheader(f"On {datetime.now().strftime('%B %d')} in History...")
+    hist = get_history_facts()
+    if hist is not None and not hist.empty:
+        max_snow = hist['snowfall_sum'].max()
+        snowy_years = len(hist[hist['snowfall_sum'] > 0])
+        m1, m2 = st.columns(2)
+        m1.metric("Record Snow", f"{max_snow}\"")
