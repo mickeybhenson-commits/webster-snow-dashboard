@@ -45,9 +45,9 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.2);
         font-weight: bold;
     }
-    .alert-purple { background-color: #5E35B1; border-left: 10px solid #B39DDB; } /* Winter Wx Advisory */
-    .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }    /* Warning */
-    .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; } /* Watch */
+    .alert-purple { background-color: #5E35B1; border-left: 10px solid #B39DDB; }
+    .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }
+    .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; }
     
     img { border: 2px solid #a6c9ff; border-radius: 8px; }
     h1, h2, h3, p, div { color: #e0f7fa !important; }
@@ -71,13 +71,11 @@ with c1:
 ts = int(time.time())
 
 # --- DATA FUNCTIONS ---
-@st.cache_data(ttl=300) # Check for alerts every 5 mins
+@st.cache_data(ttl=300)
 def get_nws_alerts():
-    """Fetches official active alerts (Warnings/Watches) for the location."""
     try:
-        # Use the /alerts/active endpoint which captures all warnings for the zone
         url = f"https://api.weather.gov/alerts/active?point={LAT},{LON}"
-        r = requests.get(url, headers={'User-Agent': '(webster_app, contact@example.com)'}).json()
+        r = requests.get(url, headers={'User-Agent': '(webster_app)'}).json()
         return r.get('features', [])
     except: return []
 
@@ -114,7 +112,6 @@ def get_history_facts():
         return df[df['md'] == today.strftime('%m-%d')]
     except: return None
 
-# --- STREAM RENDERER ---
 def render_stream(title, url, type="youtube"):
     st.subheader(title)
     if type == "youtube":
@@ -132,51 +129,38 @@ def render_stream(title, url, type="youtube"):
         components.html(video_html, height=400)
         st.caption(f"🔴 Custom HLS Stream")
 
-# --- 🚨 NEW: ALERT SECTION (Top of Page) ---
+# --- ALERT BANNER ---
 alerts = get_nws_alerts()
 if alerts:
     st.subheader("⚠️ Active NWS Alerts")
     for alert in alerts:
         props = alert['properties']
-        event = props['event']     # e.g., "Winter Weather Advisory"
-        headline = props['headline']
+        event = props['event']
         description = props['description']
-        
-        # Determine Color
-        css_class = "alert-orange" # Default
+        css_class = "alert-orange"
         if "Warning" in event: css_class = "alert-red"
         if "Winter" in event or "Ice" in event or "Snow" in event: css_class = "alert-purple"
-        
-        # Render Alert Box
         st.markdown(f"""
         <div class="alert-box {css_class}">
             <h3>{event}</h3>
-            <p>{headline}</p>
-            <details>
-                <summary>Read Full Alert Text</summary>
-                <p style="font-size: 0.9em; margin-top: 10px;">{description}</p>
-            </details>
+            <p>{props['headline']}</p>
+            <details><summary>Read Full Alert Text</summary><p style="font-size:0.9em;">{description}</p></details>
         </div>
         """, unsafe_allow_html=True)
 
-# --- TAB LAYOUT ---
-tab_radar, tab_resorts, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns & Resorts", "📜 History"])
+# --- TABS ---
+# ADDED "NWS Briefing Room" as the 4th tab
+tab_radar, tab_resorts, tab_nws, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns & Resorts", "📝 NWS Briefing Room", "📜 History"])
 
 with tab_radar:
     col_left, col_right = st.columns([3, 2])
-    
     with col_left:
         st.subheader("Doppler Loop")
-        st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
-                 caption=f"Live Feed | {datetime.now().strftime('%H:%M')}", 
-                 use_container_width=True)
-
+        st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", caption=f"Live Feed | {datetime.now().strftime('%H:%M')}", use_container_width=True)
     with col_right:
         st.subheader("Forecast Intelligence")
-        
         euro = get_euro_snow()
         nws = get_nws_text()
-        
         st.markdown("### 🇪🇺 7-Day Forecast (ECMWF)")
         if euro:
             for i in range(len(euro['time'])):
@@ -184,18 +168,14 @@ with tab_radar:
                 day_name = day_date.strftime('%A')
                 short_date = day_date.strftime('%b %d')
                 amount = euro['snowfall_sum'][i]
-                
                 r1, r2 = st.columns([2, 1])
                 with r1: st.write(f"**{day_name}** ({short_date})")
                 with r2: 
                     if amount > 0: st.markdown(f"❄️ **{amount}\"**")
                     else: st.write(f"{amount}\"")
                 st.markdown("""<hr style="margin:0; padding:0; border-top: 1px solid #444;">""", unsafe_allow_html=True)
-        else:
-            st.write("Loading 7-Day Model...")
-        
+        else: st.write("Loading...")
         st.divider()
-        
         st.markdown("### 🇺🇸 NWS Text (Next 24h)")
         if nws:
             found = False
@@ -217,17 +197,17 @@ with tab_resorts:
         st.link_button("🔴 Watch Live (ResortCams)", "https://www.resortcams.com/webcams/waynesville/")
         st.image("https://www.resortcams.com/wp-content/themes/resortcams/images/logo-resortcams.png", caption="Source: ResortCams.com")
 
-with tab_history:
-    st.subheader(f"On {datetime.now().strftime('%B %d')} in History...")
-    hist = get_history_facts()
-    if hist is not None and not hist.empty:
-        max_snow = hist['snowfall_sum'].max()
-        snowy_years = len(hist[hist['snowfall_sum'] > 0])
-        m1, m2 = st.columns(2)
-        m1.metric("Record Snow", f"{max_snow}\"")
-        m2.metric("Years w/ Snow", f"{snowy_years}/10")
-        fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
-        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=250, margin=dict(l=0,r=0,t=0,b=0))
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write("Fetching archives...")
+# --- NEW: NWS BRIEFING ROOM ---
+with tab_nws:
+    st.subheader("📝 Official NWS Briefing Slides")
+    st.caption("These are the exact slides the Meteorologists at Greenville-Spartanburg use to brief the public. They update live.")
+    
+    # These URLs pull the "Graphicast" images directly from the NWS GSP server
+    # Slide 1: usually the Main Weather Story (The Infographic you liked)
+    # Slide 2: usually the Hazards Map (The Purple Map you liked)
+    
+    nws1, nws2 = st.columns(2)
+    
+    with nws1:
+        st.markdown("**1. Current Weather Story**")
+        st.image(f"https://www.weather.gov/images/gsp/graphicast/image1.png?t={ts}", caption
