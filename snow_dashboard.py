@@ -179,11 +179,14 @@ with tab_radar:
         st.markdown("### 🇺🇸 NWS Text (Next 24h)")
         if nws:
             found = False
-            for p in nws[:2]:
-                if "snow" in p['detailedForecast'].lower():
+            # UPDATED: Scan the first 3 periods (Next 36 hours) to catch overnight mix
+            for p in nws[:3]:
+                # Force show if there is an alert active
+                text = p['detailedForecast'].lower()
+                if alerts or "snow" in text or "sleet" in text or "ice" in text:
                     st.info(f"**{p['name']}:** {p['detailedForecast']}")
                     found = True
-            if not found: st.success("No snow mentioned in immediate text.")
+            if not found: st.success("No snow in Webster (Valley Floor).")
         else: st.write("Loading...")
 
 # --- TAB 2: RESORTS ---
@@ -198,24 +201,25 @@ with tab_resorts:
         st.link_button("🔴 Watch Live (ResortCams)", "https://www.resortcams.com/webcams/waynesville/")
         st.image("https://www.resortcams.com/wp-content/themes/resortcams/images/logo-resortcams.png", caption="Source: ResortCams.com")
 
-# --- TAB 3: NWS BRIEFING ROOM (FIXED) ---
+# --- TAB 3: NWS BRIEFING ROOM (UPDATED) ---
 with tab_nws:
     st.subheader("📝 Official NWS Briefing Slides")
-    st.caption("These are the exact slides the Meteorologists at Greenville-Spartanburg use to brief the public. They update live.")
+    st.caption("These are the live slides from NWS Greenville-Spartanburg.")
     
+    # UPDATED URLs: These are the standard "Weather Story" links for GSP
     nws1, nws2 = st.columns(2)
     
     with nws1:
-        st.markdown("**1. Current Weather Story**")
-        st.image(f"https://www.weather.gov/images/gsp/graphicast/image1.png?t={ts}", caption="NWS GSP Weather Story", use_container_width=True)
+        st.markdown("**1. Weather Story**")
+        st.image(f"https://www.weather.gov/images/gsp/WxStory1.png?t={ts}", caption="Latest Graphic", use_container_width=True)
     
     with nws2:
-        st.markdown("**2. Hazards Map**")
-        st.image(f"https://www.weather.gov/images/gsp/graphicast/image2.png?t={ts}", caption="Active Watches/Warnings Map", use_container_width=True)
+        st.markdown("**2. Winter Weather Outlook**")
+        st.image(f"https://www.weather.gov/images/gsp/WxStory2.png?t={ts}", caption="Winter Storm Impacts", use_container_width=True)
         
     st.divider()
-    st.markdown("**3. Extended Outlook**")
-    st.image(f"https://www.weather.gov/images/gsp/graphicast/image3.png?t={ts}", caption="Looking Ahead", use_container_width=True)
+    st.markdown("**3. Regional Radar View**")
+    st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", caption="Regional Loop", use_container_width=True)
 
 # --- TAB 4: HISTORY ---
 with tab_history:
@@ -226,3 +230,9 @@ with tab_history:
         snowy_years = len(hist[hist['snowfall_sum'] > 0])
         m1, m2 = st.columns(2)
         m1.metric("Record Snow", f"{max_snow}\"")
+        m2.metric("Years w/ Snow", f"{snowy_years}/10")
+        fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
+        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=250, margin=dict(l=0,r=0,t=0,b=0))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write("Fetching archives...")
