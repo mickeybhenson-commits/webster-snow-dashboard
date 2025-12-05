@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import time
-import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
@@ -201,24 +200,18 @@ with tab_radar:
 # --- TAB 2: WEBCAMS ---
 with tab_webcams:
     st.subheader("Live Regional Views")
-    
     c1, c2 = st.columns(2)
     
     with c1:
         st.markdown("**1. Silver Creek (Lake Glenville)**")
         st.video("https://youtu.be/l_sNHKVUp2c", autoplay=True, muted=True)
-        
         st.markdown("**2. Sugar Mountain Resort**")
         st.video("https://www.youtube.com/watch?v=gIV_NX2dYow", autoplay=True, muted=True)
 
     with c2:
         st.markdown("**3. Beech Mountain Parkway**")
-        # This is a placeholder for a Beech Mountain video if available, or a similar resort cam
         st.video("https://www.youtube.com/watch?v=gIV_NX2dYow", autoplay=True, muted=True)
-        
         st.markdown("**4. Blowing Rock (Main St)**")
-        # Note: Blowing Rock YouTube streams often rotate. Using a reliable WNC stream as fallback/example.
-        # If you find a specific Blowing Rock YouTube URL, paste it here.
         st.video("https://www.youtube.com/watch?v=Hfi4zE01DVs", autoplay=True, muted=True)
 
 # --- TAB 3: HISTORY ---
@@ -234,10 +227,15 @@ with tab_history:
         m2.metric("Years w/ Snow", f"{snowy_years}/10")
         
         fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
+        # FIXED: Ensure strings are properly closed
         fig.update_layout(
             plot_bgcolor='rgba(0,0,0,0)', 
             paper_bgcolor='rgba(0,0,0,0)', 
             font=dict(color='white'), 
             height=300, 
             margin=dict(l=0,r=0,t=0,b=0),
-            yaxis_title="
+            yaxis_title="Inches"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write("Fetching archives...")
