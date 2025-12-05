@@ -12,14 +12,10 @@ LOCATION_NAME = "Webster, NC"
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
 
-# --- 1. OFFICIAL LOGO ---
-st.logo("https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png", 
-        link="https://weather.gov", 
-        icon_image="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Snowflake_icon.svg/120px-Snowflake_icon.svg.png")
-
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS (Polished) ---
 st.markdown("""
 <style>
+    /* 1. Main Background */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), 
                           url('https://images.unsplash.com/photo-1516431883744-dc60fa69f927?q=80&w=2070&auto=format&fit=crop');
@@ -28,15 +24,28 @@ st.markdown("""
         background-attachment: fixed;
         color: #ffffff;
     }
-    div[data-testid="stMetric"] {
+    
+    /* 2. Glass Cards for Data */
+    .glass-card {
         background-color: rgba(20, 30, 40, 0.75);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(5px);
-        padding: 15px;
-        border-radius: 10px;
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        border-radius: 12px;
         color: white;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
-    /* ALERT BANNER STYLES */
+    
+    /* 3. Metric Boxes */
+    div[data-testid="stMetric"] {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* 4. Alert Banners */
     .alert-box {
         padding: 15px;
         border-radius: 8px;
@@ -48,24 +57,29 @@ st.markdown("""
     .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }
     .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; }
     
-    img { border: 2px solid #a6c9ff; border-radius: 8px; }
-    h1, h2, h3, p, div { color: #e0f7fa !important; }
+    /* 5. Headers & Images */
+    img { border: 2px solid #a6c9ff; border-radius: 10px; }
+    h1, h2, h3, h4, p, div { color: #e0f7fa !important; }
+    
+    /* 6. Clean Divider */
+    hr { margin-top: 5px; margin-bottom: 5px; border-color: #444; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.image("https://64.media.tumblr.com/f722ffb4624171f3ab2e727913e93ae2/tumblr_p14oecN2Wx1ro8ysbo1_500.gif", caption="Bonnie Lane Snow Patrol")
-    st.markdown("### ❄️ Dashboard Controls")
+    st.markdown("### ❄️ Controls")
     if st.button("✨ Let it Snow!"): st.snow()
-    if st.button("🔄 Force Refresh Data"): st.cache_data.clear(); st.rerun()
+    if st.button("🔄 Force Refresh"): st.cache_data.clear(); st.rerun()
+    st.markdown("---")
+    st.caption(f"Last Updated:\n{datetime.now().strftime('%I:%M:%S %p')}")
 
 # --- HEADER ---
-c1, c2 = st.columns([3, 1])
+c1, c2 = st.columns([4, 1])
 with c1:
     st.title("❄️ Stephanie's Snow Forecaster")
-    st.markdown("### *Bonnie Lane Edition*") 
-    st.caption(f"Webster, NC Radar & Intelligence | {datetime.now().strftime('%A, %b %d %I:%M %p')}")
+    st.markdown("#### *Bonnie Lane Edition*") 
 
 ts = int(time.time())
 
@@ -114,7 +128,6 @@ def get_history_facts():
 # --- ALERT BANNER ---
 alerts = get_nws_alerts()
 if alerts:
-    st.subheader("⚠️ Active NWS Alerts")
     for alert in alerts:
         props = alert['properties']
         event = props['event']
@@ -124,51 +137,72 @@ if alerts:
         if "Winter" in event or "Ice" in event or "Snow" in event: css_class = "alert-purple"
         st.markdown(f"""
         <div class="alert-box {css_class}">
-            <h3>{event}</h3>
+            <h3>⚠️ {event}</h3>
             <p>{props['headline']}</p>
-            <details><summary>Read Full Alert Text</summary><p style="font-size:0.9em;">{description}</p></details>
+            <details><summary>Read Details</summary><p style="font-size:0.9em;">{description}</p></details>
         </div>
         """, unsafe_allow_html=True)
 
-# --- TABS (Simplified) ---
+# --- TABS ---
 tab_radar, tab_history = st.tabs(["📡 Radar & Data", "📜 History"])
 
-# --- TAB 1: RADAR ---
+# --- TAB 1: RADAR & DATA ---
 with tab_radar:
-    col_left, col_right = st.columns([3, 2])
+    # 60% Radar / 40% Data split for better balance
+    col_left, col_right = st.columns([1.5, 1])
+    
+    # --- LEFT: RADAR ---
     with col_left:
-        st.subheader("Doppler Loop")
-        st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", caption=f"Live Feed | {datetime.now().strftime('%H:%M')}", use_container_width=True)
+        st.markdown("### Doppler Loop")
+        st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
+                 caption=f"Live Feed | {datetime.now().strftime('%H:%M')}", 
+                 use_container_width=True)
+
+    # --- RIGHT: INTELLIGENCE ---
     with col_right:
-        st.subheader("Forecast Intelligence")
+        st.markdown("### Forecast Intelligence")
+        
+        # We wrap the data in a "glass card" for a cleaner look
         euro = get_euro_snow()
         nws = get_nws_text()
-        st.markdown("### 🇪🇺 7-Day Forecast (ECMWF)")
-        if euro:
-            for i in range(len(euro['time'])):
-                day_date = pd.to_datetime(euro['time'][i])
-                day_name = day_date.strftime('%A')
-                short_date = day_date.strftime('%b %d')
-                amount = euro['snowfall_sum'][i]
-                r1, r2 = st.columns([2, 1])
-                with r1: st.write(f"**{day_name}** ({short_date})")
-                with r2: 
-                    if amount > 0: st.markdown(f"❄️ **{amount}\"**")
-                    else: st.write(f"{amount}\"")
-                st.markdown("""<hr style="margin:0; padding:0; border-top: 1px solid #444;">""", unsafe_allow_html=True)
-        else: st.write("Loading...")
+        
+        # 1. European Model Card
+        with st.container():
+            st.markdown("**🇪🇺 7-Day Snow Outlook (ECMWF)**")
+            if euro:
+                for i in range(len(euro['time'])):
+                    day_date = pd.to_datetime(euro['time'][i])
+                    day_name = day_date.strftime('%A')
+                    short_date = day_date.strftime('%b %d')
+                    amount = euro['snowfall_sum'][i]
+                    
+                    # Layout: Day | Amount
+                    c_day, c_amt = st.columns([2, 1])
+                    c_day.write(f"{day_name} ({short_date})")
+                    if amount > 0:
+                        c_amt.markdown(f"**❄️ {amount}\"**")
+                    else:
+                        c_amt.write(f"{amount}\"")
+                    st.markdown("---")
+            else:
+                st.write("Loading data...")
+
         st.divider()
-        st.markdown("### 🇺🇸 NWS Text (Next 24h)")
-        if nws:
-            found = False
-            # Check next 3 periods for ANY mention of winter words
-            for p in nws[:3]:
-                text = p['detailedForecast'].lower()
-                if alerts or "snow" in text or "sleet" in text or "ice" in text or "wintry" in text:
-                    st.info(f"**{p['name']}:** {p['detailedForecast']}")
-                    found = True
-            if not found: st.success("No snow in Webster (Valley Floor).")
-        else: st.write("Loading...")
+
+        # 2. NWS Text Card
+        with st.container():
+            st.markdown("**🇺🇸 Official NWS Text**")
+            if nws:
+                found = False
+                for p in nws[:3]:
+                    text = p['detailedForecast'].lower()
+                    if alerts or "snow" in text or "sleet" in text or "ice" in text or "wintry" in text:
+                        st.info(f"**{p['name']}:** {p['detailedForecast']}")
+                        found = True
+                if not found: 
+                    st.success("No snow mentioned in immediate text forecast.")
+            else:
+                st.write("Loading...")
 
 # --- TAB 2: HISTORY ---
 with tab_history:
@@ -177,11 +211,20 @@ with tab_history:
     if hist is not None and not hist.empty:
         max_snow = hist['snowfall_sum'].max()
         snowy_years = len(hist[hist['snowfall_sum'] > 0])
+        
         m1, m2 = st.columns(2)
         m1.metric("Record Snow", f"{max_snow}\"")
         m2.metric("Years w/ Snow", f"{snowy_years}/10")
+        
         fig = go.Figure(data=[go.Bar(x=hist['time'].dt.year, y=hist['snowfall_sum'], marker_color='#a6c9ff')])
-        fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=250, margin=dict(l=0,r=0,t=0,b=0))
+        fig.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            font=dict(color='white'), 
+            height=300, 
+            margin=dict(l=0,r=0,t=0,b=0),
+            yaxis_title="Inches"
+        )
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.write("Fetching archives...")
