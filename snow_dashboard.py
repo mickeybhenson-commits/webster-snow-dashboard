@@ -950,7 +950,7 @@ with tab_cartier:
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.video("https://youtu.be/5I8KfuKgKsw?si=bDsNPL76JpcJFN6e", autoplay=True)
+        st.video("https://youtu.be/5I8KfuKgKsw?si=bDsNPL76JpcJFN6e", autoplay=True, loop=True)
     
     st.markdown("---")
     
