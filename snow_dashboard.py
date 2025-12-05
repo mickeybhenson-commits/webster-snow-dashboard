@@ -37,27 +37,18 @@ st.markdown("""
         border-radius: 10px;
         color: white;
     }
-    /* Alert Box for Wintry Mix */
-    .mix-alert {
-        background-color: #6a1b9a; /* Purple for Mix */
-        color: white;
-        padding: 10px;
+    /* ALERT BANNER STYLES */
+    .alert-box {
+        padding: 15px;
         border-radius: 8px;
-        border: 1px solid #ab47bc;
-        margin-bottom: 10px;
-        text-align: center;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.2);
         font-weight: bold;
     }
-    .ice-alert {
-        background-color: #d81b60; /* Pink for Ice */
-        color: white;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #f48fb1;
-        margin-bottom: 10px;
-        text-align: center;
-        font-weight: bold;
-    }
+    .alert-purple { background-color: #5E35B1; border-left: 10px solid #B39DDB; } /* Winter Wx Advisory */
+    .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }    /* Warning */
+    .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; } /* Watch */
+    
     img { border: 2px solid #a6c9ff; border-radius: 8px; }
     h1, h2, h3, p, div { color: #e0f7fa !important; }
 </style>
@@ -80,6 +71,16 @@ with c1:
 ts = int(time.time())
 
 # --- DATA FUNCTIONS ---
+@st.cache_data(ttl=300) # Check for alerts every 5 mins
+def get_nws_alerts():
+    """Fetches official active alerts (Warnings/Watches) for the location."""
+    try:
+        # Use the /alerts/active endpoint which captures all warnings for the zone
+        url = f"https://api.weather.gov/alerts/active?point={LAT},{LON}"
+        r = requests.get(url, headers={'User-Agent': '(webster_app, contact@example.com)'}).json()
+        return r.get('features', [])
+    except: return []
+
 @st.cache_data(ttl=900)
 def get_nws_text():
     try:
@@ -93,7 +94,6 @@ def get_nws_text():
 def get_euro_snow():
     try:
         url = "https://api.open-meteo.com/v1/forecast"
-        # ADDED 'weather_code' to detect Mix/Ice
         params = {"latitude": LAT, "longitude": LON, "daily": ["snowfall_sum", "weather_code"], 
                   "timezone": "America/New_York", "precipitation_unit": "inch"}
         return requests.get(url, params=params).json().get('daily', None)
@@ -114,14 +114,7 @@ def get_history_facts():
         return df[df['md'] == today.strftime('%m-%d')]
     except: return None
 
-# --- HELPER: WMO CODE TRANSLATOR ---
-def get_precip_type(code):
-    # WMO Codes: https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
-    if code in [71, 73, 75, 77, 85, 86]: return "SNOW", "❄️"
-    if code in [66, 67, 56, 57]: return "FREEZING RAIN", "🧊" # Dangerous!
-    if code in [68, 69, 83, 84]: return "WINTRY MIX", "☔❄️"
-    return None, None
-
+# --- STREAM RENDERER ---
 def render_stream(title, url, type="youtube"):
     st.subheader(title)
     if type == "youtube":
@@ -138,6 +131,33 @@ def render_stream(title, url, type="youtube"):
         """
         components.html(video_html, height=400)
         st.caption(f"🔴 Custom HLS Stream")
+
+# --- 🚨 NEW: ALERT SECTION (Top of Page) ---
+alerts = get_nws_alerts()
+if alerts:
+    st.subheader("⚠️ Active NWS Alerts")
+    for alert in alerts:
+        props = alert['properties']
+        event = props['event']     # e.g., "Winter Weather Advisory"
+        headline = props['headline']
+        description = props['description']
+        
+        # Determine Color
+        css_class = "alert-orange" # Default
+        if "Warning" in event: css_class = "alert-red"
+        if "Winter" in event or "Ice" in event or "Snow" in event: css_class = "alert-purple"
+        
+        # Render Alert Box
+        st.markdown(f"""
+        <div class="alert-box {css_class}">
+            <h3>{event}</h3>
+            <p>{headline}</p>
+            <details>
+                <summary>Read Full Alert Text</summary>
+                <p style="font-size: 0.9em; margin-top: 10px;">{description}</p>
+            </details>
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- TAB LAYOUT ---
 tab_radar, tab_resorts, tab_history = st.tabs(["📡 Radar & Data", "🎥 Towns & Resorts", "📜 History"])
@@ -164,24 +184,12 @@ with tab_radar:
                 day_name = day_date.strftime('%A')
                 short_date = day_date.strftime('%b %d')
                 amount = euro['snowfall_sum'][i]
-                w_code = euro['weather_code'][i]
-                p_type, p_icon = get_precip_type(w_code)
                 
-                # RENDER ROW
                 r1, r2 = st.columns([2, 1])
-                with r1:
-                    st.write(f"**{day_name}** ({short_date})")
-                    # NEW: Show alert if Mix/Ice is detected
-                    if p_type == "FREEZING RAIN":
-                        st.markdown(f"<div class='ice-alert'>⚠️ ICE STORM</div>", unsafe_allow_html=True)
-                    elif p_type == "WINTRY MIX":
-                        st.markdown(f"<div class='mix-alert'>☔❄️ MIX</div>", unsafe_allow_html=True)
-                        
-                with r2:
-                    if amount > 0:
-                        st.markdown(f"❄️ **{amount}\"**")
-                    else:
-                        st.write(f"{amount}\"")
+                with r1: st.write(f"**{day_name}** ({short_date})")
+                with r2: 
+                    if amount > 0: st.markdown(f"❄️ **{amount}\"**")
+                    else: st.write(f"{amount}\"")
                 st.markdown("""<hr style="margin:0; padding:0; border-top: 1px solid #444;">""", unsafe_allow_html=True)
         else:
             st.write("Loading 7-Day Model...")
@@ -191,18 +199,12 @@ with tab_radar:
         st.markdown("### 🇺🇸 NWS Text (Next 24h)")
         if nws:
             found = False
-            # UPDATED: Look for mix keywords
-            mix_keywords = ["snow", "sleet", "freezing", "wintry", "ice"]
-            
             for p in nws[:2]:
-                text = p['detailedForecast'].lower()
-                if any(x in text for x in mix_keywords):
+                if "snow" in p['detailedForecast'].lower():
                     st.info(f"**{p['name']}:** {p['detailedForecast']}")
                     found = True
-            if not found:
-                st.success("No winter precip mentioned.")
-        else:
-            st.write("Loading...")
+            if not found: st.success("No snow mentioned in immediate text.")
+        else: st.write("Loading...")
 
 with tab_resorts:
     st.subheader("Live Video Streams")
