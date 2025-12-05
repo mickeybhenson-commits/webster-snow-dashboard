@@ -550,13 +550,14 @@ if seasonal_stats and season_ok:
     """, unsafe_allow_html=True)
 
 # --- MAIN TABS ---
-tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, tab_santa, tab_history, tab_export = st.tabs([
+tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, tab_cartier, tab_santa, tab_history, tab_export = st.tabs([
     "🏠 Overview", 
     "⏰ Hourly", 
     "📅 7-Day", 
     "⚖️ Compare",
     "📡 Radar", 
     "🎥 Webcams",
+    "🐕 Cartier",
     "🎅 Santa",
     "📜 History",
     "💾 Export"
@@ -936,7 +937,94 @@ with tab_webcams:
     st.markdown("---")
     st.info("💡 Tip: These webcams update continuously. Refresh the page to see the latest conditions.")
 
-# --- TAB 7: SANTA TRACKER ---
+# --- TAB 7: CARTIER ---
+with tab_cartier:
+    st.markdown("""
+    <div class="glass-card">
+        <h2 style="text-align: center;">🐕 Cartier - Guardian of Bonnie Lane 🐕</h2>
+        <p style="text-align: center; font-size: 1.1em;">The goodest boy watching over the snow!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Center the video
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.video("https://youtu.be/5I8KfuKgKsw?si=bDsNPL76JpcJFN6e", autoplay=False)
+    
+    st.markdown("---")
+    
+    # Fun Cartier stats
+    st.markdown("### 🦴 Cartier's Snow Stats")
+    
+    cartier_col1, cartier_col2, cartier_col3, cartier_col4 = st.columns(4)
+    
+    with cartier_col1:
+        if season_ok and season_data:
+            st.metric("🐾 Paw Prints in Snow", f"{season_data['days_with_snow'] * 100}+")
+        else:
+            st.metric("🐾 Paw Prints in Snow", "1000+")
+    
+    with cartier_col2:
+        st.metric("❄️ Snowballs Chased", "∞")
+    
+    with cartier_col3:
+        st.metric("⭐ Good Boy Rating", "15/10")
+    
+    with cartier_col4:
+        if euro_valley_ok and euro_valley:
+            next_snow = 0
+            for i in range(len(euro_valley['time'])):
+                if euro_valley['snowfall_sum'][i] > 0:
+                    next_snow = i
+                    break
+            if next_snow == 0 and euro_valley['snowfall_sum'][0] > 0:
+                st.metric("🎾 Next Play Day", "TODAY!")
+            elif next_snow > 0:
+                st.metric("🎾 Next Play Day", f"{next_snow} days")
+            else:
+                st.metric("🎾 Next Play Day", "Soon!")
+        else:
+            st.metric("🎾 Next Play Day", "Soon!")
+    
+    st.markdown("---")
+    
+    # Cartier weather preferences
+    with st.expander("🐕 What Cartier Thinks About the Weather"):
+        st.markdown("""
+        **Cartier's Weather Guide:**
+        
+        - **0-2" of snow:** "Perfect for zoomies!" 🏃‍♂️
+        - **2-4" of snow:** "Maximum snowball potential!" ⚾
+        - **4-6" of snow:** "Deep snow adventures!" 🗻
+        - **6"+ of snow:** "BEST DAY EVER!" 🎉
+        - **No snow:** "Still a good day for walks!" 🦴
+        
+        **Fun Fact:** Cartier can detect incoming snow storms 24 hours in advance by getting extra playful!
+        """)
+    
+    st.markdown("---")
+    
+    # Show if there's snow forecasted
+    if euro_valley_ok and euro_valley:
+        upcoming_snow_days = []
+        for i in range(min(7, len(euro_valley['time']))):
+            if euro_valley['snowfall_sum'][i] > 0:
+                day_date = pd.to_datetime(euro_valley['time'][i])
+                upcoming_snow_days.append({
+                    'day': day_date.strftime('%A'),
+                    'date': day_date.strftime('%b %d'),
+                    'amount': euro_valley['snowfall_sum'][i]
+                })
+        
+        if upcoming_snow_days:
+            st.success(f"🎉 **Cartier Alert:** {len(upcoming_snow_days)} snow day(s) forecasted this week!")
+            for snow_day in upcoming_snow_days:
+                st.info(f"🐕 **{snow_day['day']}, {snow_day['date']}** - {snow_day['amount']:.1f}\" of playtime expected!")
+        else:
+            st.info("🐕 No snow in the 7-day forecast, but Cartier is still ready for adventures!")
+
+# --- TAB 8: SANTA TRACKER ---
 with tab_santa:
     st.subheader("🎅 NORAD Santa Tracker")
     st.caption("Track Santa's journey around the world on Christmas Eve!")
@@ -1011,7 +1099,7 @@ with tab_santa:
     st.markdown("---")
     st.markdown("🔗 **Visit the official site:** [NORAD Tracks Santa](https://www.noradsanta.org/)")
 
-# --- TAB 8: HISTORY ---
+# --- TAB 9: HISTORY ---
 with tab_history:
     st.subheader("📜 Historical Snowfall Analysis")
     
@@ -1129,7 +1217,7 @@ with tab_history:
     else:
         st.error("❌ Unable to load historical data")
 
-# --- TAB 9: EXPORT ---
+# --- TAB 10: EXPORT ---
 with tab_export:
     st.subheader("💾 Export Data & Reports")
     st.caption("Download forecasts and historical data for offline analysis")
