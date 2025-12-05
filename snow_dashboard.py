@@ -550,7 +550,7 @@ if seasonal_stats and season_ok:
     """, unsafe_allow_html=True)
 
 # --- MAIN TABS ---
-tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, tab_cartier, tab_santa, tab_history, tab_export = st.tabs([
+tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, tab_cartier, tab_movie, tab_santa, tab_history, tab_export = st.tabs([
     "🏠 Overview", 
     "⏰ Hourly", 
     "📅 7-Day", 
@@ -558,6 +558,7 @@ tab_overview, tab_hourly, tab_forecast, tab_comparison, tab_radar, tab_webcams, 
     "📡 Radar", 
     "🎥 Webcams",
     "🐕 Cartier",
+    "🎬 Movie",
     "🎅 Santa",
     "📜 History",
     "💾 Export"
@@ -1024,7 +1025,83 @@ with tab_cartier:
         else:
             st.info("🐕 No snow in the 7-day forecast, but Cartier is still ready for adventures!")
 
-# --- TAB 8: SANTA TRACKER ---
+# --- TAB 8: CHRISTMAS VACATION MOVIE ---
+with tab_movie:
+    st.markdown("""
+    <div class="glass-card">
+        <h2 style="text-align: center;">🎬 National Lampoon's Christmas Vacation 🎄</h2>
+        <p style="text-align: center; font-size: 1.1em;">The perfect movie for a snowy day on Bonnie Lane!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Embed the movie
+    st.components.v1.iframe(
+        "https://archive.org/embed/Christmas_Story_and_National_Lampoon_Christmas_Vacation?start=5440",
+        height=600,
+        scrolling=False
+    )
+    
+    st.markdown("---")
+    
+    # Movie info and fun facts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🎥 Movie Info")
+        st.markdown("""
+        **National Lampoon's Christmas Vacation** (1989)
+        
+        - **Starring:** Chevy Chase, Beverly D'Angelo
+        - **Director:** Jeremiah S. Chechik
+        - **Runtime:** 97 minutes
+        - **Rating:** PG-13
+        
+        The third installment in the Vacation film series follows the Griswold family's attempts to have a perfect family Christmas.
+        """)
+    
+    with col2:
+        st.markdown("### ❄️ Perfect Viewing Weather")
+        
+        if euro_valley_ok and euro_valley:
+            # Find best movie-watching days (snowy days!)
+            movie_days = []
+            for i in range(min(7, len(euro_valley['time']))):
+                if euro_valley['snowfall_sum'][i] > 0:
+                    day_date = pd.to_datetime(euro_valley['time'][i])
+                    movie_days.append({
+                        'day': day_date.strftime('%A'),
+                        'date': day_date.strftime('%b %d'),
+                        'snow': euro_valley['snowfall_sum'][i]
+                    })
+            
+            if movie_days:
+                st.success(f"🎬 {len(movie_days)} perfect movie day(s) coming up!")
+                for day in movie_days:
+                    st.info(f"**{day['day']}, {day['date']}** - {day['snow']:.1f}\" ❄️")
+            else:
+                st.info("Any day is a good day for Christmas Vacation!")
+        else:
+            st.info("Any day is a good day for Christmas Vacation!")
+    
+    st.markdown("---")
+    
+    # Fun quotes
+    with st.expander("💬 Classic Quotes"):
+        st.markdown("""
+        **Some of the best lines from the movie:**
+        
+        - "We're gonna have the hap-hap-happiest Christmas since Bing Crosby tap-danced with Danny f***ing Kaye!"
+        - "Merry Christmas! Shitter was full!"
+        - "Hallelujah! Holy shit! Where's the Tylenol?"
+        - "Clark, stop it! I don't want to spend the holidays dead!"
+        - "Can I refill your eggnog for you? Get you something to eat? Drive you out to the middle of nowhere and leave you for dead?"
+        
+        🎄 **Perfect for:** Snowy evenings, family gatherings, and getting into the Christmas spirit!
+        """)
+
+# --- TAB 9: SANTA TRACKER ---
 with tab_santa:
     st.subheader("🎅 NORAD Santa Tracker")
     st.caption("Track Santa's journey around the world on Christmas Eve!")
@@ -1099,7 +1176,7 @@ with tab_santa:
     st.markdown("---")
     st.markdown("🔗 **Visit the official site:** [NORAD Tracks Santa](https://www.noradsanta.org/)")
 
-# --- TAB 9: HISTORY ---
+# --- TAB 10: HISTORY ---
 with tab_history:
     st.subheader("📜 Historical Snowfall Analysis")
     
@@ -1217,7 +1294,7 @@ with tab_history:
     else:
         st.error("❌ Unable to load historical data")
 
-# --- TAB 10: EXPORT ---
+# --- TAB 11: EXPORT ---
 with tab_export:
     st.subheader("💾 Export Data & Reports")
     st.caption("Download forecasts and historical data for offline analysis")
