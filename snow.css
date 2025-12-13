@@ -1,0 +1,60 @@
+/* Keyframes for gentle snow animation */
+@keyframes snowfall {
+    0% { transform: translateY(-100vh); }
+    100% { transform: translateY(100vh); }
+}
+
+/* Snowflake Container */
+.snowflake-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 999;
+    overflow: hidden;
+}
+
+/* Snowflake Style - Translucent */
+.snowflake {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    /* Low opacity for translucent look, as requested */
+    background: rgba(255, 255, 255, 0.3); 
+    border-radius: 50%;
+    /* Randomize speed and start time for realistic effect */
+    animation: snowfall 10s linear infinite; 
+}
+
+/* Individual snowflake variations for depth/randomness */
+.snowflake:nth-child(2n) {
+    left: 15%;
+    animation-duration: 18s;
+    background: rgba(255, 255, 255, 0.2); 
+    width: 7px;
+    height: 7px;
+}
+.snowflake:nth-child(3n) {
+    left: 45%;
+    animation-duration: 12s;
+    animation-delay: 4s;
+}
+.snowflake:nth-child(5n) {
+    left: 80%;
+    animation-duration: 15s;
+    animation-delay: 2s;
+    width: 4px;
+    height: 4px;
+}
+.snowflake:nth-child(7n) {
+    left: 95%;
+    animation-duration: 20s;
+    animation-delay: 8s;
+}
+.snowflake:nth-child(11n) {
+    left: 5%;
+    animation-duration: 14s;
+    animation-delay: 1s;
+}

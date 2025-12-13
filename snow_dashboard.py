@@ -5,12 +5,16 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 from datetime import datetime, timedelta
+# Import the required library to load local CSS
+from streamlit_extras.st_theme import st_theme
+from streamlit_extras.add_vertical_space import add_vertical_space
+from streamlit_extras.dataframe_explorer import dataframe_explorer 
+from streamlit_extras.stylable_container import stylable_container
 
 # --- CONFIGURATION ---
 LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
-# --- FINAL FIX: Points directly to the GIF file uploaded in the GitHub repository ---
 SNOOPY_IMAGE_FILE = "snoopy sleding.gif" 
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster (Stable ECMWF)", page_icon="❄️", layout="wide")
@@ -26,7 +30,29 @@ WNC_WEBCAMS = {
 BILTMORE_WINTER_GARDEN_LINK = "https://www.bing.com/videos/riverview/relatedvideo?q=Biltmore%20Estate%20live%20webcam&mid=D398BE68B9891902173CD398BE68B9891902173C&ajaxhist=0"
 NORAD_SANTA_LINK = "https://www.noradsanta.org/en/"
 
-# --- CUSTOM CSS (Clean, Static Background) ---
+# --- CSS LOADING & SNOW INJECTION ---
+
+# Function to load external CSS
+def load_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Generate HTML for a translucent snow effect (50 snowflakes)
+def generate_snow_html(num_flakes=50):
+    html = '<div class="snowflake-container">'
+    for i in range(num_flakes):
+        # Apply random left position, duration, and delay for variation
+        left = f"{i * 2}vw"
+        duration = f"{10 + (i % 10)}s"
+        delay = f"{-1 * (i / num_flakes * 10)}s"
+        html += f'<div class="snowflake" style="left: {left}; animation-duration: {duration}; animation-delay: {delay};"></div>'
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+# Load the custom CSS (including the snow animation keys)
+load_css("snow.css")
+
+# --- CUSTOM CSS (General Dashboard Styles) ---
 st.markdown("""
 <style>
     /* 1. Main Background */
@@ -81,6 +107,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Generate and inject the snow
+generate_snow_html()
 
 # --- TIMEZONE FIX ---
 nc_time = pd.Timestamp.now(tz='US/Eastern')
