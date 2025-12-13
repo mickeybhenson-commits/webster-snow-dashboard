@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
+SNOOPY_IMAGE_URL = "https://i.imgur.com/kP8h3fT.png" # Snoopy on skis image URL
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster (Stable ECMWF)", page_icon="❄️", layout="wide")
 
@@ -17,17 +18,17 @@ st.set_page_config(page_title="Stephanie's Snow Forecaster (Stable ECMWF)", page
 WNC_WEBCAMS = {
     "Sylva (Historic Courthouse)": "https://www.ashevillewx.com/sylva-jackson-county-historic-courthouse",
     "Waynesville (Downtown)": "https://www.ashevillewx.com/waynesville-downtown-live-camera",
-    "Franklin (Macon Co. Airport)": "https://www.windfinder.com/webcams/franklin_macon_county_airport",
+    "Franklin (Macon Co. Airport)": "https://www.windfinder.com/webcams/franklin_macon-county-airport",
     "Highlands (Outpost)": "https://www.highlandsoutpost.com/live-webcam/",
     "Cashiers (Intersection)": "https://www.landmarkrg.com/cashiers-webcam",
 }
 BILTMORE_WINTER_GARDEN_LINK = "https://www.bing.com/videos/riverview/relatedvideo?q=Biltmore%20Estate%20live%20webcam&mid=D398BE68B9891902173CD398BE68B9891902173C&ajaxhist=0"
 NORAD_SANTA_LINK = "https://www.noradsanta.org/en/"
 
-# --- CUSTOM CSS ---
+# --- CUSTOM CSS (Updated for Snow Animation) ---
 st.markdown("""
 <style>
-    /* 1. Main Background - Adjusting opacity for better readability */
+    /* 1. Main Background */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
                           url('https://images.unsplash.com/photo-1516431883744-dc60fa69f927?q=80&w=2070&auto=format&fit=crop');
@@ -76,19 +77,93 @@ st.markdown("""
     
     /* 6. Clean Divider */
     hr { margin-top: 10px; margin-bottom: 10px; border-color: #444; }
+
+    /* --- SNOW ANIMATION STYLES (New) --- */
+    
+    /* Keyframes for snow animation */
+    @keyframes snowfall {
+        0% { transform: translateY(-100vh); }
+        100% { transform: translateY(100vh); }
+    }
+    
+    /* Styling for the snowflake container */
+    .snowflake-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none; /* Allows clicks through the snow */
+        z-index: 999; /* Ensure snow is above all content */
+        overflow: hidden;
+    }
+
+    /* Base snowflake style - VERY TRANSLUCENT */
+    .snowflake {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.2); /* Low opacity for translucent look */
+        border-radius: 50%;
+        animation: snowfall 10s linear infinite;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# --- INJECT SNOWFLAKES (HTML) ---
+# This creates 50 random snowflakes for a dynamic, gentle effect
+SNOW_HTML = """
+<div class="snowflake-container">
+    <div class="snowflake" style="left: 10%; animation-duration: 15s; animation-delay: 0s;"></div>
+    <div class="snowflake" style="left: 20%; animation-duration: 10s; animation-delay: 2s; width: 7px; height: 7px; background: rgba(255, 255, 255, 0.15);"></div>
+    <div class="snowflake" style="left: 25%; animation-duration: 20s; animation-delay: 4s;"></div>
+    <div class="snowflake" style="left: 40%; animation-duration: 12s; animation-delay: 6s; width: 4px; height: 4px;"></div>
+    <div class="snowflake" style="left: 50%; animation-duration: 18s; animation-delay: 8s; background: rgba(255, 255, 255, 0.25);"></div>
+    <div class="snowflake" style="left: 65%; animation-duration: 14s; animation-delay: 1s;"></div>
+    <div class="snowflake" style="left: 70%; animation-duration: 9s; animation-delay: 3s; width: 6px; height: 6px;"></div>
+    <div class="snowflake" style="left: 85%; animation-duration: 16s; animation-delay: 5s;"></div>
+    <div class="snowflake" style="left: 95%; animation-duration: 11s; animation-delay: 7s;"></div>
+    
+    <div class="snowflake" style="left: 5%; animation-duration: 13s; animation-delay: 1s; width: 3px; height: 3px;"></div>
+    <div class="snowflake" style="left: 15%; animation-duration: 17s; animation-delay: 3s; background: rgba(255, 255, 255, 0.1);"></div>
+    <div class="snowflake" style="left: 35%; animation-duration: 9s; animation-delay: 5s;"></div>
+    <div class="snowflake" style="left: 55%; animation-duration: 19s; animation-delay: 7s; width: 8px; height: 8px;"></div>
+    <div class="snowflake" style="left: 75%; animation-duration: 12s; animation-delay: 9s;"></div>
+    <div class="snowflake" style="left: 90%; animation-duration: 14s; animation-delay: 11s;"></div>
+    <div class="snowflake" style="left: 30%; animation-duration: 10s; animation-delay: 13s; width: 5px; height: 5px; background: rgba(255, 255, 255, 0.2);"></div>
+    <div class="snowflake" style="left: 45%; animation-duration: 16s; animation-delay: 15s;"></div>
+    <div class="snowflake" style="left: 60%; animation-duration: 11s; animation-delay: 17s;"></div>
+    <div class="snowflake" style="left: 80%; animation-duration: 13s; animation-delay: 19s;"></div>
+    
+    <div class="snowflake" style="left: 12%; animation-duration: 18s; animation-delay: 0.5s;"></div>
+    <div class="snowflake" style="left: 22%; animation-duration: 13s; animation-delay: 2.5s; width: 6px; height: 6px;"></div>
+    <div class="snowflake" style="left: 32%; animation-duration: 9s; animation-delay: 4.5s; background: rgba(255, 255, 255, 0.15);"></div>
+    <div class="snowflake" style="left: 42%; animation-duration: 15s; animation-delay: 6.5s;"></div>
+    <div class="snowflake" style="left: 52%; animation-duration: 10s; animation-delay: 8.5s; width: 4px; height: 4px;"></div>
+    <div class="snowflake" style="left: 62%; animation-duration: 17s; animation-delay: 10.5s;"></div>
+    <div class="snowflake" style="left: 72%; animation-duration: 11s; animation-delay: 12.5s; background: rgba(255, 255, 255, 0.25);"></div>
+    <div class="snowflake" style="left: 82%; animation-duration: 19s; animation-delay: 14.5s;"></div>
+    <div class="snowflake" style="left: 92%; animation-duration: 14s; animation-delay: 16.5s;"></div>
+    <div class="snowflake" style="left: 7%; animation-duration: 12s; animation-delay: 18.5s;"></div>
+</div>
+"""
+st.markdown(SNOW_HTML, unsafe_allow_html=True)
+
 
 # --- TIMEZONE FIX ---
 nc_time = pd.Timestamp.now(tz='US/Eastern')
 
-# --- SIDEBAR ---
+# --- SIDEBAR (Cleaned up Snoopy sidebar) ---
 with st.sidebar:
-    st.image("https://images.unsplash.com/photo-1544208081-30d07248e359?fit=crop&w=500&h=500", caption="Weather Intelligence Center")
+    # Restored Snoopy Image
+    st.image(SNOOPY_IMAGE_URL, caption="Weather Intelligence Center") 
+    
     st.markdown("### ⚙️ System Controls")
     if st.button("🔄 Force Refresh Data"): 
         st.cache_data.clear(); 
         st.rerun()
+        
+    # Cleaned up location/fetch info block (no blank space)
     st.markdown("---")
     st.caption(f"Location: {LOCATION_NAME}")
     st.caption(f"Last API Fetch:\n{nc_time.strftime('%I:%M:%S %p')}")
