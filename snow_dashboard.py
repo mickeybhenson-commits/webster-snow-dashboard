@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
-SNOOPY_IMAGE_URL = "https://i.imgur.com/kP8h3fT.png" # Snoopy on skis image URL
+# --- FINAL FIX: Points directly to the GIF file uploaded in the GitHub repository ---
+SNOOPY_IMAGE_FILE = "snoopy sleding.gif" 
 
 st.set_page_config(page_title="Stephanie's Snow Forecaster (Stable ECMWF)", page_icon="❄️", layout="wide")
 
@@ -25,7 +26,7 @@ WNC_WEBCAMS = {
 BILTMORE_WINTER_GARDEN_LINK = "https://www.bing.com/videos/riverview/relatedvideo?q=Biltmore%20Estate%20live%20webcam&mid=D398BE68B9891902173CD398BE68B9891902173C&ajaxhist=0"
 NORAD_SANTA_LINK = "https://www.noradsanta.org/en/"
 
-# --- CUSTOM CSS (Updated for Snow Animation) ---
+# --- CUSTOM CSS (Clean, Static Background) ---
 st.markdown("""
 <style>
     /* 1. Main Background */
@@ -77,86 +78,17 @@ st.markdown("""
     
     /* 6. Clean Divider */
     hr { margin-top: 10px; margin-bottom: 10px; border-color: #444; }
-
-    /* --- SNOW ANIMATION STYLES (New) --- */
-    
-    /* Keyframes for snow animation */
-    @keyframes snowfall {
-        0% { transform: translateY(-100vh); }
-        100% { transform: translateY(100vh); }
-    }
-    
-    /* Styling for the snowflake container */
-    .snowflake-container {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        pointer-events: none; /* Allows clicks through the snow */
-        z-index: 999; /* Ensure snow is above all content */
-        overflow: hidden;
-    }
-
-    /* Base snowflake style - VERY TRANSLUCENT */
-    .snowflake {
-        position: absolute;
-        width: 5px;
-        height: 5px;
-        background: rgba(255, 255, 255, 0.2); /* Low opacity for translucent look */
-        border-radius: 50%;
-        animation: snowfall 10s linear infinite;
-    }
 </style>
 """, unsafe_allow_html=True)
-
-# --- INJECT SNOWFLAKES (HTML) ---
-# This creates 50 random snowflakes for a dynamic, gentle effect
-SNOW_HTML = """
-<div class="snowflake-container">
-    <div class="snowflake" style="left: 10%; animation-duration: 15s; animation-delay: 0s;"></div>
-    <div class="snowflake" style="left: 20%; animation-duration: 10s; animation-delay: 2s; width: 7px; height: 7px; background: rgba(255, 255, 255, 0.15);"></div>
-    <div class="snowflake" style="left: 25%; animation-duration: 20s; animation-delay: 4s;"></div>
-    <div class="snowflake" style="left: 40%; animation-duration: 12s; animation-delay: 6s; width: 4px; height: 4px;"></div>
-    <div class="snowflake" style="left: 50%; animation-duration: 18s; animation-delay: 8s; background: rgba(255, 255, 255, 0.25);"></div>
-    <div class="snowflake" style="left: 65%; animation-duration: 14s; animation-delay: 1s;"></div>
-    <div class="snowflake" style="left: 70%; animation-duration: 9s; animation-delay: 3s; width: 6px; height: 6px;"></div>
-    <div class="snowflake" style="left: 85%; animation-duration: 16s; animation-delay: 5s;"></div>
-    <div class="snowflake" style="left: 95%; animation-duration: 11s; animation-delay: 7s;"></div>
-    
-    <div class="snowflake" style="left: 5%; animation-duration: 13s; animation-delay: 1s; width: 3px; height: 3px;"></div>
-    <div class="snowflake" style="left: 15%; animation-duration: 17s; animation-delay: 3s; background: rgba(255, 255, 255, 0.1);"></div>
-    <div class="snowflake" style="left: 35%; animation-duration: 9s; animation-delay: 5s;"></div>
-    <div class="snowflake" style="left: 55%; animation-duration: 19s; animation-delay: 7s; width: 8px; height: 8px;"></div>
-    <div class="snowflake" style="left: 75%; animation-duration: 12s; animation-delay: 9s;"></div>
-    <div class="snowflake" style="left: 90%; animation-duration: 14s; animation-delay: 11s;"></div>
-    <div class="snowflake" style="left: 30%; animation-duration: 10s; animation-delay: 13s; width: 5px; height: 5px; background: rgba(255, 255, 255, 0.2);"></div>
-    <div class="snowflake" style="left: 45%; animation-duration: 16s; animation-delay: 15s;"></div>
-    <div class="snowflake" style="left: 60%; animation-duration: 11s; animation-delay: 17s;"></div>
-    <div class="snowflake" style="left: 80%; animation-duration: 13s; animation-delay: 19s;"></div>
-    
-    <div class="snowflake" style="left: 12%; animation-duration: 18s; animation-delay: 0.5s;"></div>
-    <div class="snowflake" style="left: 22%; animation-duration: 13s; animation-delay: 2.5s; width: 6px; height: 6px;"></div>
-    <div class="snowflake" style="left: 32%; animation-duration: 9s; animation-delay: 4.5s; background: rgba(255, 255, 255, 0.15);"></div>
-    <div class="snowflake" style="left: 42%; animation-duration: 15s; animation-delay: 6.5s;"></div>
-    <div class="snowflake" style="left: 52%; animation-duration: 10s; animation-delay: 8.5s; width: 4px; height: 4px;"></div>
-    <div class="snowflake" style="left: 62%; animation-duration: 17s; animation-delay: 10.5s;"></div>
-    <div class="snowflake" style="left: 72%; animation-duration: 11s; animation-delay: 12.5s; background: rgba(255, 255, 255, 0.25);"></div>
-    <div class="snowflake" style="left: 82%; animation-duration: 19s; animation-delay: 14.5s;"></div>
-    <div class="snowflake" style="left: 92%; animation-duration: 14s; animation-delay: 16.5s;"></div>
-    <div class="snowflake" style="left: 7%; animation-duration: 12s; animation-delay: 18.5s;"></div>
-</div>
-"""
-st.markdown(SNOW_HTML, unsafe_allow_html=True)
 
 
 # --- TIMEZONE FIX ---
 nc_time = pd.Timestamp.now(tz='US/Eastern')
 
-# --- SIDEBAR (Cleaned up Snoopy sidebar) ---
+# --- SIDEBAR (Snoopy GIF and Cleaned up) ---
 with st.sidebar:
-    # Restored Snoopy Image
-    st.image(SNOOPY_IMAGE_URL, caption="Weather Intelligence Center") 
+    # Use the local GIF file path
+    st.image(SNOOPY_IMAGE_FILE, caption="Weather Intelligence Center") 
     
     st.markdown("### ⚙️ System Controls")
     if st.button("🔄 Force Refresh Data"): 
@@ -278,7 +210,7 @@ with st.spinner("Loading weather intelligence..."):
 ecmwf = ecmwf_data['daily'] if ecmwf_data and 'daily' in ecmwf_data else None
 hourly_data = ecmwf_data['hourly'] if ecmwf_data and 'hourly' in ecmwf_data else None
 
-# --- TABS (Updated Structure: 6 Tabs) ---
+# --- TABS (Updated Structure: 7 Tabs) ---
 tab_snow_summary, tab_thermal, tab_radar, tab_nws_text, tab_webcams, tab_history, tab_entertainment = st.tabs([
     "❄️ Snow Summary (ECMWF)", 
     "🌡️ Thermal Analysis", 
