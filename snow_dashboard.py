@@ -11,7 +11,7 @@ LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
 
-st.set_page_config(page_title="Stephanie's Snow Forecaster (PAWIS)", page_icon="❄️", layout="wide")
+st.set_page_config(page_title="Stephanie's Snow Forecaster (Stable ECMWF)", page_icon="❄️", layout="wide")
 
 # --- WNC WEBCAM LINKS ---
 WNC_WEBCAMS = {
@@ -97,12 +97,12 @@ with st.sidebar:
 c1, c2 = st.columns([4, 1])
 with c1:
     st.title("❄️ Stephanie's Snow Forecaster")
-    st.markdown("#### *PAWIS 1.0: AI-Enhanced for Western NC*")
+    st.markdown("#### *PAWIS 1.0: Stable Forecasting (ECMWF Only)*")
     st.caption(f"Real-time Data & Intelligence | {nc_time.strftime('%A, %b %d %I:%M %p')}")
 
 ts = int(time.time())
 
-# --- DATA FUNCTIONS (Fetching) ---
+# --- DATA FUNCTIONS (ECMWF ONLY) ---
 @st.cache_data(ttl=300)
 def get_nws_alerts():
     try:
@@ -121,8 +121,8 @@ def get_nws_text():
     except: return []
 
 @st.cache_data(ttl=3600)
-def get_ecmwf_forecast():
-    """Get ECMWF model forecast (Daily metrics)"""
+def get_ecmwf_data():
+    """Get ECMWF model forecast (Daily metrics, hourly thermal/snow)"""
     try:
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
@@ -136,59 +136,21 @@ def get_ecmwf_forecast():
                 "precipitation_sum",
                 "wind_gusts_10m_max"
             ], 
+            "hourly": [
+                "temperature_2m", 
+                "dewpoint_2m",
+                "snowfall"
+            ],
             "timezone": "America/New_York", 
             "precipitation_unit": "inch",
             "forecast_days": 7
         }
-        return requests.get(url, params=params, timeout=10).json().get('daily', None)
-    except: return None
-
-@st.cache_data(ttl=3600)
-def get_graphcast_forecast():
-    """Get GraphCast AI model forecast (Google DeepMind) and hourly data for thermal analysis"""
-    try:
-        url = "https://api.open-meteo.com/v1/forecast"
-        params = {
-            "latitude": LAT, 
-            "longitude": LON, 
-            "hourly": [
-                "temperature_2m", 
-                "precipitation", 
-                "snowfall",
-                "dewpoint_2m"
-            ],
-            "models": "graphcast025",
-            "temperature_unit": "fahrenheit",
-            "precipitation_unit": "inch",
-            "timezone": "America/New_York",
-            "forecast_days": 7
+        r = requests.get(url, params=params, timeout=10).json()
+        return {
+            'daily': r.get('daily', None),
+            'hourly': r.get('hourly', None)
         }
-        r = requests.get(url, params=params, timeout=10)
-        r.raise_for_status()
-        data = r.json().get('hourly', None)
-        
-        if data:
-            df = pd.DataFrame(data)
-            df['time'] = pd.to_datetime(df['time'])
-            
-            # Aggregate for daily view (for comparison)
-            daily = df.groupby(df['time'].dt.date).agg({
-                'temperature_2m': 'mean',
-                'precipitation': 'sum',
-                'snowfall': 'sum',
-                'dewpoint_2m': 'mean'
-            }).reset_index()
-            daily['time'] = daily['time'].astype(str)
-            
-            return {
-                'daily': daily.to_dict('list'),
-                'hourly': df
-            }
-        return None
-    except requests.exceptions.HTTPError:
-        # HTTP errors often mean the model data is temporarily unavailable
-        return None
-    except Exception: return None
+    except: return None
 
 @st.cache_data(ttl=86400)
 def get_history_facts():
@@ -232,19 +194,18 @@ if alerts:
         """, unsafe_allow_html=True)
 
 # --- FETCH DATA ---
-with st.spinner("Loading AI and model intelligence..."):
-    ecmwf = get_ecmwf_forecast()
-    graphcast_raw = get_graphcast_forecast()
+with st.spinner("Loading weather intelligence..."):
+    ecmwf_data = get_ecmwf_data()
     nws = get_nws_text()
     history = get_history_facts()
 
 # Extract data for clarity
-graphcast = graphcast_raw['daily'] if graphcast_raw and 'daily' in graphcast_raw else None
-graphcast_hourly_df = graphcast_raw['hourly'] if graphcast_raw and 'hourly' in graphcast_raw else None
+ecmwf = ecmwf_data['daily'] if ecmwf_data and 'daily' in ecmwf_data else None
+hourly_data = ecmwf_data['hourly'] if ecmwf_data and 'hourly' in ecmwf_data else None
 
-# --- TABS (Final Structure with 7 tabs) ---
-tab_ai, tab_thermal, tab_radar, tab_nws_text, tab_webcams, tab_history, tab_entertainment = st.tabs([
-    "🤖 AI Comparison", 
+# --- TABS (Updated Structure: 6 Tabs) ---
+tab_snow_summary, tab_thermal, tab_radar, tab_nws_text, tab_webcams, tab_history, tab_entertainment = st.tabs([
+    "❄️ Snow Summary (ECMWF)", 
     "🌡️ Thermal Analysis", 
     "📡 Radar & Maps", 
     "🌨️ NWS Text Forecast", 
@@ -253,117 +214,67 @@ tab_ai, tab_thermal, tab_radar, tab_nws_text, tab_webcams, tab_history, tab_ente
     "✨ Seasonal Fun"
 ])
 
-# --- TAB 1: AI FORECAST COMPARISON ---
-with tab_ai:
-    st.markdown("### 🧠 AI Model Comparison: Snow Totals")
+# --- TAB 1: SNOW SUMMARY (ECMWF Only) ---
+with tab_snow_summary:
+    st.markdown("### ❄️ 7-Day Snowfall Forecast (ECMWF Model)")
     
-    if ecmwf and graphcast:
-        # 7-Day Summary Metrics
-        st.markdown("#### 📊 7-Day Total Snowfall")
-        col1, col2, col3, col4 = st.columns(4)
+    if ecmwf:
+        
+        # Summary Metrics
+        st.markdown("#### 📊 Forecast Overview")
+        col1, col2, col3 = st.columns(3)
         
         ecmwf_snow_list = ecmwf['snowfall_sum'][:7] if ecmwf and 'snowfall_sum' in ecmwf else [0]
-        gc_snow_list = graphcast['snowfall'][:7] if graphcast and 'snowfall' in graphcast else [0]
-        
         ecmwf_7day = sum(ecmwf_snow_list)
-        gc_7day = sum(gc_snow_list)
         
-        if ecmwf_7day > 0 or gc_7day > 0:
-            consensus_7day = (ecmwf_7day + gc_7day) / 2
-        else:
-            consensus_7day = 0
-        
-        try:
-            # Calculate agreement/confidence
-            daily_diffs = [abs(e - g) for e, g in zip(ecmwf_snow_list, gc_snow_list)]
-            avg_diff = sum(daily_diffs) / len(daily_diffs)
-            confidence_score = max(0, 100 - (avg_diff * 10))
-        except:
-            avg_diff = 999
-            confidence_score = 50
-            
-        col1.metric("🌍 ECMWF Model", f"{ecmwf_7day:.2f}\"")
-        col2.metric("🤖 GraphCast AI", f"{gc_7day:.2f}\"")
-        col3.metric("📊 Consensus", f"{consensus_7day:.2f}\"")
-        col4.metric("Confidence Score", f"{confidence_score:.0f}/100", 
-                    delta=f"Avg Daily Diff: ±{avg_diff:.2f}\"")
+        col1.metric("7-Day Total Snowfall", f"{ecmwf_7day:.2f}\"")
+        col2.metric("Minimum Temperature", f"{min(ecmwf['temperature_2m_min'][:7]):.0f}°F")
+        col3.metric("Maximum Wind Gust", f"{max(ecmwf['wind_gusts_10m_max'][:7]):.0f} mph")
         
         st.markdown("---")
         
-        # Day-by-Day Comparison Table 
-        st.markdown("#### 📅 Daily Forecast Comparison")
+        # Day-by-Day Summary Table
+        st.markdown("#### 📅 Daily Forecast")
         
-        comparison_data = []
-        min_len = min(len(ecmwf_snow_list), len(gc_snow_list), 7)
+        summary_data = []
+        min_len = min(len(ecmwf_snow_list), len(ecmwf['temperature_2m_max']), 7)
         
         for i in range(min_len):
             day_date = pd.to_datetime(ecmwf['time'][i])
-            ecmwf_snow = ecmwf_snow_list[i]
-            gc_snow = gc_snow_list[i]
-            consensus = (ecmwf_snow + gc_snow) / 2
-            diff = abs(ecmwf_snow - gc_snow)
             
-            if diff < 0.2:
-                agreement = "🟢 High"
-            elif diff < 0.7:
-                agreement = "🟡 Moderate"
-            else:
-                agreement = "🔴 Low"
-            
-            comparison_data.append({
+            summary_data.append({
                 'Date': day_date.strftime('%a %m/%d'),
-                '🌍 ECMWF': f"{ecmwf_snow:.2f}\"",
-                '🤖 GraphCast': f"{gc_snow:.2f}\"",
-                '📊 Consensus': f"{consensus:.2f}\"",
-                'Agreement': agreement,
-                'Difference': f"±{diff:.2f}\""
+                'Snowfall': f"{ecmwf_snow_list[i]:.2f}\"",
+                'High/Low Temp': f"{ecmwf['temperature_2m_max'][i]:.0f}°F / {ecmwf['temperature_2m_min'][i]:.0f}°F",
+                'Max Wind Gust': f"{ecmwf['wind_gusts_10m_max'][i]:.0f} mph"
             })
         
-        df_comparison = pd.DataFrame(comparison_data)
-        st.dataframe(df_comparison, use_container_width=True, hide_index=True)
+        df_summary = pd.DataFrame(summary_data)
+        st.dataframe(df_summary, use_container_width=True, hide_index=True)
         
-        # Visual Comparison Chart 
-        st.markdown("#### 📈 Visual Snow Comparison")
+        # Visual Snow Chart
+        st.markdown("#### 📈 Visual Snowfall Projection")
         fig = go.Figure()
         dates = [pd.to_datetime(ecmwf['time'][i]).strftime('%a %m/%d') for i in range(min_len)]
         
         fig.add_trace(go.Bar(
-            name='🌍 ECMWF',
+            name='🌍 ECMWF Snowfall',
             x=dates,
             y=ecmwf_snow_list[:min_len],
-            marker_color='#4ECDC4'
-        ))
-        
-        fig.add_trace(go.Bar(
-            name='🤖 GraphCast',
-            x=dates,
-            y=gc_snow_list[:min_len],
-            marker_color='#FF6B6B'
+            marker_color='#81D4FA'
         ))
         
         fig.update_layout(
-            barmode='group',
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
             height=400,
-            title="Snow Forecast Comparison (inches)",
+            title="ECMWF Snowfall Forecast (inches)",
             xaxis_title="Date",
             yaxis_title="Snowfall (inches)",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig, use_container_width=True)
-        
-        with st.expander("📖 Interpretation Guide"):
-            st.markdown("""
-            **The Confidence Score** reflects the average agreement between the two most powerful global models.
-            """)
     
-    elif ecmwf and not graphcast:
-        st.warning("🤖 GraphCast AI model data temporarily unavailable. Check back in 1-2 hours.")
-        st.markdown("#### 🌍 ECMWF 7-Day Snow Total")
-        total_snow_7day = sum(ecmwf['snowfall_sum'][:7]) if ecmwf and 'snowfall_sum' in ecmwf else 0
-        st.metric("ECMWF 7-Day Total", f"{total_snow_7day:.2f}\"")
     else:
         st.warning("Data loading. Please ensure your internet connection is stable and try refreshing.")
 
@@ -371,22 +282,26 @@ with tab_ai:
 # --- TAB 2: THERMAL ANALYSIS ---
 with tab_thermal:
     st.markdown("### 🌡️ Key Thermal Indicators")
-    st.caption("Critical metrics for predicting freezing rain, ice, and atmospheric moisture.")
+    st.caption("Critical metrics for predicting freezing rain, ice, and atmospheric moisture (ECMWF Hourly)")
     
-    if ecmwf and graphcast_hourly_df is not None:
+    if ecmwf and hourly_data:
         # 1. Thermal Metrics
         col_t1, col_t2, col_t3, col_t4 = st.columns(4)
+        
+        hourly_df = pd.DataFrame(hourly_data)
+        hourly_df['time'] = pd.to_datetime(hourly_df['time'])
+        
+        # Use first period data for current state estimates
+        current_temp = hourly_df['temperature_2m'][0]
+        current_dewpoint = hourly_df['dewpoint_2m'][0]
+        dewpoint_depression = current_temp - current_dewpoint
         
         max_wind_gust = max(ecmwf['wind_gusts_10m_max'][:7]) if 'wind_gusts_10m_max' in ecmwf else 0
         total_snow_7day = sum(ecmwf['snowfall_sum'][:7]) if ecmwf and 'snowfall_sum' in ecmwf else 0
         
-        current_temp = graphcast_hourly_df['temperature_2m'][0]
-        current_dewpoint = graphcast_hourly_df['dewpoint_2m'][0]
-        dewpoint_depression = current_temp - current_dewpoint
-        
-        col_t1.metric("Total Snow (7 Days)", f"{total_snow_7day:.2f}\"")
-        col_t2.metric("Min Temp (7 Days)", f"{min(ecmwf['temperature_2m_min'][:7]):.0f}°F")
-        col_t3.metric("Max Wind Gust (7 Days)", f"{max_wind_gust:.0f} mph")
+        col_t1.metric("Current Temp", f"{current_temp:.0f}°F")
+        col_t2.metric("Current Dew Point", f"{current_dewpoint:.0f}°F")
+        col_t3.metric("Min Temp (7 Days)", f"{min(ecmwf['temperature_2m_min'][:7]):.0f}°F")
         col_t4.metric("Current Dew Point Depression", f"{dewpoint_depression:.1f}°F", 
                       help="Difference between air temperature and dew point. Lower number means higher humidity (risk of fog/ice).")
 
@@ -397,9 +312,9 @@ with tab_thermal:
         
         try:
             fig_temp = go.Figure()
-            fig_temp.add_trace(go.Scatter(x=graphcast_hourly_df['time'], y=graphcast_hourly_df['temperature_2m'], mode='lines', 
+            fig_temp.add_trace(go.Scatter(x=hourly_df['time'], y=hourly_df['temperature_2m'], mode='lines', 
                                           name='Temperature', line=dict(color='orange', width=3)))
-            fig_temp.add_trace(go.Scatter(x=graphcast_hourly_df['time'], y=graphcast_hourly_df['dewpoint_2m'], mode='lines', 
+            fig_temp.add_trace(go.Scatter(x=hourly_df['time'], y=hourly_df['dewpoint_2m'], mode='lines', 
                                           name='Dew Point', line=dict(color='#4ECDC4', width=3)))
             
             fig_temp.add_hline(y=32, line_dash="dot", line_color="red", annotation_text="Freezing Line (32°F)")
@@ -419,8 +334,6 @@ with tab_thermal:
         except Exception:
             st.error("Thermal analysis plot not available.")
     
-    elif ecmwf and not graphcast_hourly_df:
-        st.warning("Thermal data (GraphCast) is temporarily unavailable. Check the NWS forecast.")
     else:
         st.warning("Data loading. Please ensure your internet connection is stable and try refreshing.")
 
@@ -562,5 +475,5 @@ with tab_entertainment:
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF Model • GraphCast AI (Google DeepMind)")
-st.caption("PAWIS 1.0 | Enhanced with Thermal & Wind Intelligence")
+st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF Model")
+st.caption("PAWIS 1.0 | Stable Forecasting with Thermal & Wind Intelligence")
