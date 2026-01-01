@@ -165,7 +165,7 @@ with st.spinner("Loading weather intelligence..."):
     nws = get_nws_text()
 
 # --- TABS ---
-tab_forecast, tab_radar = st.tabs(["❄️ Snow Forecast", "📡 Radar & Data"])
+tab_forecast, tab_radar, tab_outlook = st.tabs(["❄️ Snow Forecast", "📡 Radar & Data", "🌨️ Winter Outlook"])
 
 # --- TAB 1: SNOW FORECAST ---
 with tab_forecast:
@@ -322,6 +322,238 @@ with tab_radar:
             st.markdown("### ❄️ Quick Stats")
             next_7_days_snow = sum(euro['snowfall_sum'][:7])
             st.metric("Next 7 Days", f"{next_7_days_snow:.1f}\" snow")
+
+
+# --- TAB 3: WINTER OUTLOOK ---
+with tab_outlook:
+    st.markdown("### 🌨️ Winter 2025-2026 Outlook for Webster, NC")
+    st.caption("Seasonal forecast for Southern Appalachian Mountains")
+    
+    # Good News Banner
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); 
+                border-radius: 15px; 
+                padding: 20px; 
+                margin: 20px 0;
+                border: 3px solid #44A08D;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);">
+        <h2 style="color: white; margin: 0; text-align: center;">
+            ✅ GOOD NEWS FOR WEBSTER!
+        </h2>
+        <h3 style="color: white; margin: 10px 0 0 0; text-align: center;">
+            Above-Normal Snowfall Expected This Winter! ❄️
+        </h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Key Forecast Points
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="glass-card" style="text-align: center;">
+            <h3>❄️ Snowfall</h3>
+            <h2 style="color: #4ECDC4;">ABOVE NORMAL</h2>
+            <p>Southern Appalachians favored for heavier snow vs. northern mountains</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="glass-card" style="text-align: center;">
+            <h3>🌡️ Temperature</h3>
+            <h2 style="color: #81D4FA;">COLDER</h2>
+            <p>Below normal temps expected, especially late January</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="glass-card" style="text-align: center;">
+            <h3>📅 Peak Timing</h3>
+            <h2 style="color: #FFD93D;">LATE JAN</h2>
+            <p>Best snow: Late Dec, Late Jan, Early-Late Feb, Mid-Mar</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Detailed Outlook
+    st.markdown("### 📋 Detailed Winter Outlook")
+    
+    with st.expander("🎯 Why Webster is in the Sweet Spot", expanded=True):
+        st.markdown("""
+        **Southern Appalachian Advantage:**
+        
+        Webster, NC sits in the **Southern Appalachian Mountains** — exactly where forecasters are predicting 
+        the heaviest snowfall this winter!
+        
+        **Key Factors:**
+        - 🌊 **La Niña Pattern**: Steering jet stream toward Appalachians
+        - 🎯 **Storm Track**: Multiple opportunities for mountain snow
+        - ⛰️ **Elevation**: High enough for reliable snow vs. rain
+        - 📍 **Geography**: Southern mountains favored over northern peaks
+        
+        **What Forecasters Say:**
+        - "Greater amounts of snow expected in southern Appalachians"
+        - "Snowfall below normal in north, above normal in south"
+        - "Multiple storm opportunities, especially central and southern Appalachians"
+        - "Colder than usual with heavier snow in southern mountains"
+        """)
+    
+    with st.expander("📅 Month-by-Month Breakdown"):
+        st.markdown("""
+        ### December 2025
+        - 🌡️ Cold periods: Mid and late December
+        - ❄️ Snowfall: Possible around Christmas week
+        - 📊 Outlook: Seasonably cool to cold
+        
+        ### January 2026 ⭐ **PEAK MONTH**
+        - 🌡️ Very cold start (Jan 1-10)
+        - ❄️ Snow showers (Jan 11-17)
+        - 🌨️ **Major snow potential (Jan 23-24)** — Southern mountains
+        - ⚠️ Late January: Prime snow window
+        - 📊 Outlook: Coldest period, multiple snow chances
+        
+        ### February 2026
+        - ❄️ Early February: Good snow potential
+        - 🌨️ Late February: Another active period
+        - 📊 Outlook: Continued cold and active
+        
+        ### March 2026
+        - ❄️ Mid-March: Final snow opportunities
+        - 🌡️ Gradual warming late month
+        - 📊 Outlook: Transition to spring
+        """)
+    
+    with st.expander("📖 Farmer's Almanac Detailed Forecast"):
+        st.markdown("""
+        ### 🌨️ Appalachian Region - January 2026
+        
+        **Day-by-Day Predictions from Farmer's Almanac:**
+        
+        **January 1-10:**
+        - Very cold temperatures
+        - Northern flurries possible
+        - Bundle up for frigid start to New Year
+        
+        **January 11-17:**
+        - Mild temperatures
+        - Snow showers likely
+        - Good accumulation potential
+        
+        **January 18-22:**
+        - Sunny and mild
+        - Break between systems
+        - Enjoy the quiet period
+        
+        **January 23-24:** ⭐ **BIG SNOW WINDOW**
+        - Chilly temperatures return
+        - **Southern mountains snow event**
+        - Prime opportunity for Webster area
+        
+        **January 25-31:**
+        - Northern mountains: Snow
+        - Southern areas: Mix of snow and rain
+        - Elevation will be key
+        
+        ---
+        
+        ### ❄️ Winter Season Totals (Dec-Feb)
+        
+        **Snowfall Forecast:**
+        - **Below normal** in the north
+        - **Above normal** in the south ✅
+        - Webster is in the "above normal" zone!
+        
+        **Snowiest Periods:**
+        - Late December
+        - **Late January** ⭐ (Best chance)
+        - Early February
+        - Late February
+        - Mid-March
+        
+        **Temperature Forecast:**
+        - **Colder than usual** overall
+        - Split pattern: North vs. South
+        - "Bundle up and prep for winter chores—especially in the southern mountains"
+        
+        ---
+        
+        ### 🎯 What This Means for Webster:
+        
+        ✅ **Multiple snow opportunities** throughout winter
+        
+        ✅ **Late January = Peak window** (Jan 23-24 highlighted)
+        
+        ✅ **Above-normal snowfall** for southern mountains
+        
+        ✅ **Colder temps** support snow vs. rain
+        
+        ⚠️ **Elevation matters** - Higher = more snow (Webster benefits!)
+        """)
+    
+    with st.expander("📊 Historical Context"):
+        st.markdown("""
+        **La Niña Winter Pattern:**
+        
+        This winter features a **weak La Niña** — the same pattern that often brings good snow 
+        to the Southern Appalachians while keeping coastal areas dry.
+        
+        **What This Means:**
+        - ✅ Mountains: Above-normal snowfall likely
+        - ❌ Coast: Below-normal snowfall expected
+        - 🎯 Webster: In the favored zone!
+        
+        **Similar Winters:**
+        - Multiple past La Niña winters brought significant mountain snow
+        - Pattern favors "clipper" systems and occasional bigger storms
+        - Southern mountains often outperform northern peaks in this setup
+        """)
+    
+    with st.expander("🎿 Ski Resort Outlook"):
+        st.markdown("""
+        **Great News for Western NC Ski Areas:**
+        
+        Forecasters specifically mention favorable conditions for:
+        - **Snowshoe, WV** (north)
+        - **Boone, NC** (near Webster)
+        - **Gatlinburg, TN** (south)
+        
+        **What to Expect:**
+        - ✅ Natural snowfall above normal
+        - ✅ Cold temps for snowmaking
+        - ✅ Multiple storm opportunities
+        - ⚠️ Mountain passes (I-77, I-26) may see hazardous travel
+        """)
+    
+    st.markdown("---")
+    
+    # Bottom Line
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                border-radius: 15px; 
+                padding: 25px; 
+                margin: 20px 0;
+                border: 3px solid #667eea;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);">
+        <h3 style="color: white; margin: 0 0 15px 0; text-align: center;">
+            ❄️ BOTTOM LINE FOR WEBSTER ❄️
+        </h3>
+        <p style="color: white; font-size: 18px; text-align: center; margin: 0; line-height: 1.6;">
+            <strong>YES, snow is definitely coming back to Webster!</strong><br><br>
+            The Southern Appalachian Mountains (including Webster, NC) are forecasted for 
+            <strong>ABOVE-NORMAL snowfall</strong> this winter, with the best snow opportunities 
+            in <strong>late January through February</strong>.<br><br>
+            While coastal Carolinas stay dry, Webster is in the <strong>sweet spot</strong> 
+            for multiple winter storms! 🏔️❄️
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.caption("**Sources:** NOAA, Old Farmer's Almanac, NC State Climate Office, NWS | Updated: January 2026")
 
 
 # --- FOOTER ---
