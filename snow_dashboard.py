@@ -160,28 +160,6 @@ def get_graphcast_forecast():
         return None
     except: return None
 
-@st.cache_data(ttl=86400)
-def get_history_facts():
-    today = datetime.now()
-    start = (today - timedelta(days=365*10)).strftime('%Y-%m-%d')
-    end = (today - timedelta(days=1)).strftime('%Y-%m-%d')
-    url = "https://archive-api.open-meteo.com/v1/archive"
-    params = {
-        "latitude": LAT, 
-        "longitude": LON, 
-        "start_date": start, 
-        "end_date": end, 
-        "daily": "snowfall_sum", 
-        "timezone": "America/New_York", 
-        "precipitation_unit": "inch"
-    }
-    try:
-        r = requests.get(url, params=params).json()
-        df = pd.DataFrame(r['daily'])
-        df['time'] = pd.to_datetime(df['time'])
-        df['md'] = df['time'].dt.strftime('%m-%d')
-        return df[df['md'] == today.strftime('%m-%d')]
-    except: return None
 
 # --- ALERT BANNER ---
 alerts = get_nws_alerts()
@@ -201,15 +179,32 @@ if alerts:
         </div>
         """, unsafe_allow_html=True)
 
+# --- EMBEDDED VIDEO ---
+st.markdown("""
+<div style="background-color: rgba(20, 30, 40, 0.75); 
+            border: 2px solid rgba(255, 255, 255, 0.2); 
+            border-radius: 12px; 
+            padding: 20px;
+            margin: 20px 0;">
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+        <iframe src="https://www.youtube.com/embed/qZEcMFj4sgA" 
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen
+                title="Embedded Video">
+        </iframe>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # --- FETCH DATA ---
 with st.spinner("Loading weather intelligence..."):
     euro = get_euro_snow()
     graphcast = get_graphcast_forecast()
     nws = get_nws_text()
-    history = get_history_facts()
 
 # --- TABS ---
-tab_forecast, tab_radar, tab_history = st.tabs(["🔮 AI Forecast", "📡 Radar & Data", "📜 History"])
+tab_forecast, tab_radar = st.tabs(["🔮 AI Forecast", "📡 Radar & Data"])
 
 # --- TAB 1: AI FORECAST COMPARISON ---
 with tab_forecast:
@@ -389,76 +384,7 @@ with tab_radar:
             st.markdown("### ❄️ Quick Stats")
             next_7_days_snow = sum(euro['snowfall_sum'][:7])
             st.metric("Next 7 Days", f"{next_7_days_snow:.1f}\" snow")
-    
-    # --- WEBCAMS SECTION ---
-    st.markdown("---")
-    st.markdown("### 📹 Live Area Webcams")
-    
-    cam_col1, cam_col2 = st.columns(2)
-    
-    with cam_col1:
-        st.markdown("#### 📷 Downtown Sylva")
-        # The Sylva Herald webcam - downtown view
-        st.markdown("""
-        <div style="background-color: rgba(20, 30, 40, 0.75); 
-                    border: 2px solid rgba(255, 255, 255, 0.2); 
-                    border-radius: 12px; 
-                    padding: 10px;">
-            <iframe src="https://www.thesylvaherald.com/sylva_cam/" 
-                    style="width: 100%; height: 300px; border: none; border-radius: 8px;"
-                    title="Sylva Downtown Webcam">
-            </iframe>
-        </div>
-        """, unsafe_allow_html=True)
-        st.caption("🏛️ Downtown Sylva - Courtesy of The Sylva Herald")
-        st.caption("🔄 Updates every 2 minutes")
-    
-    with cam_col2:
-        st.markdown("#### 📷 Franklin, NC")
-        # NCDOT camera for Franklin area (US-441)
-        st.image(f"https://tims.ncdot.gov/TIMS/cameras/viewimage.ashx?id=359&t={ts}", 
-                 caption="US-441 at Franklin", 
-                 use_container_width=True)
-        st.caption("🔄 Updates every 2 minutes")
 
-# --- TAB 3: HISTORY ---
-with tab_history:
-    st.markdown("### 📜 Historical Snow Data")
-    st.caption(f"What happened on {datetime.now().strftime('%B %d')} in past years?")
-    
-    if history is not None and not history.empty:
-        st.markdown(f"**Found {len(history)} snow events on this date in the last 10 years:**")
-        
-        history_sorted = history.sort_values('snowfall_sum', ascending=False)
-        
-        for idx, row in history_sorted.iterrows():
-            year = row['time'].year
-            amount = row['snowfall_sum']
-            if amount > 0:
-                st.markdown(f"❄️ **{year}**: {amount:.1f}\" of snow")
-        
-        if history['snowfall_sum'].sum() == 0:
-            st.info("No significant snow recorded on this date in the past 10 years.")
-        
-        # Chart
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=history_sorted['time'].dt.year,
-            y=history_sorted['snowfall_sum'],
-            marker_color='#81D4FA'
-        ))
-        fig.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white'),
-            height=300,
-            title=f"Snow on {datetime.now().strftime('%B %d')} (Last 10 Years)",
-            xaxis_title="Year",
-            yaxis_title="Snowfall (inches)"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No historical data available for this date.")
 
 # --- FOOTER ---
 st.markdown("---")
