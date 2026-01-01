@@ -83,8 +83,8 @@ with st.sidebar:
 c1, c2 = st.columns([4, 1])
 with c1:
     st.title("❄️ Stephanie's Snow Forecaster")
-    st.markdown("#### *Bonnie Lane Edition - AI-Powered*")
-    st.caption(f"Webster, NC | GraphCast AI + ECMWF Dual Model | {nc_time.strftime('%A, %b %d %I:%M %p')}")
+    st.markdown("#### *Bonnie Lane Edition - ECMWF Powered*")
+    st.caption(f"Webster, NC | European Centre Gold Standard Model | {nc_time.strftime('%A, %b %d %I:%M %p')}")
 
 ts = int(time.time())
 
@@ -120,44 +120,6 @@ def get_euro_snow():
             "forecast_days": 7
         }
         return requests.get(url, params=params, timeout=10).json().get('daily', None)
-    except: return None
-
-@st.cache_data(ttl=3600)
-def get_graphcast_forecast():
-    """Get GraphCast AI model forecast (Google DeepMind)"""
-    try:
-        url = "https://api.open-meteo.com/v1/forecast"
-        params = {
-            "latitude": LAT, 
-            "longitude": LON, 
-            "hourly": [
-                "temperature_2m", 
-                "precipitation", 
-                "snowfall"
-            ],
-            "models": "graphcast025",  # GraphCast 0.25° resolution model
-            "temperature_unit": "fahrenheit",
-            "precipitation_unit": "inch",
-            "timezone": "America/New_York",
-            "forecast_days": 7
-        }
-        r = requests.get(url, params=params, timeout=10)
-        r.raise_for_status()
-        data = r.json().get('hourly', None)
-        
-        # Convert hourly to daily for easier comparison
-        if data:
-            df = pd.DataFrame(data)
-            df['time'] = pd.to_datetime(df['time'])
-            df['date'] = df['time'].dt.date
-            daily = df.groupby('date').agg({
-                'temperature_2m': 'mean',
-                'precipitation': 'sum',
-                'snowfall': 'sum'
-            }).reset_index()
-            daily['time'] = daily['date'].astype(str)
-            return daily.to_dict('list')
-        return None
     except: return None
 
 
@@ -200,68 +162,63 @@ st.markdown("""
 # --- FETCH DATA ---
 with st.spinner("Loading weather intelligence..."):
     euro = get_euro_snow()
-    graphcast = get_graphcast_forecast()
     nws = get_nws_text()
 
 # --- TABS ---
-tab_forecast, tab_radar = st.tabs(["🔮 AI Forecast", "📡 Radar & Data"])
+tab_forecast, tab_radar = st.tabs(["❄️ Snow Forecast", "📡 Radar & Data"])
 
-# --- TAB 1: AI FORECAST COMPARISON ---
+# --- TAB 1: SNOW FORECAST ---
 with tab_forecast:
-    st.markdown("### 🤖 AI Model Comparison: GraphCast vs ECMWF")
-    st.caption("GraphCast (Google DeepMind AI) • ECMWF (European Centre physics model)")
+    st.markdown("### ❄️ ECMWF Snow Forecast")
+    st.caption("European Centre for Medium-Range Weather Forecasts - Gold Standard Model")
     
-    if graphcast and euro:
-        # 7-Day Summary Metrics
-        st.markdown("#### 📊 7-Day Snow Totals")
-        col1, col2, col3 = st.columns(3)
+    if euro:
+        # 7-Day Summary
+        st.markdown("#### 📊 7-Day Snow Total")
+        total_snow = sum(euro['snowfall_sum'][:7])
         
-        ecmwf_7day = sum(euro['snowfall_sum'][:7])
-        gc_7day = sum(graphcast['snowfall'][:7])
-        consensus_7day = (ecmwf_7day + gc_7day) / 2
-        
-        col1.metric("🌍 ECMWF", f"{ecmwf_7day:.2f}\"")
-        col2.metric("🤖 GraphCast", f"{gc_7day:.2f}\"")
-        col3.metric("📊 Consensus", f"{consensus_7day:.2f}\"", 
-                    delta=f"±{abs(ecmwf_7day - gc_7day)/2:.2f}\"")
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.metric("Next 7 Days", f"{total_snow:.2f}\" snow", 
+                     help="Total expected snowfall over the next week")
         
         st.markdown("---")
         
-        # Day-by-Day Comparison
-        st.markdown("#### 📅 Daily Forecast Comparison")
+        # Daily Breakdown Table
+        st.markdown("#### 📅 Daily Breakdown")
         
-        comparison_data = []
-        for i in range(min(7, len(euro['time']), len(graphcast['time']))):
+        daily_data = []
+        for i in range(min(7, len(euro['time']))):
             day_date = pd.to_datetime(euro['time'][i])
-            ecmwf_snow = euro['snowfall_sum'][i]
-            gc_snow = graphcast['snowfall'][i]
-            consensus = (ecmwf_snow + gc_snow) / 2
-            diff = abs(ecmwf_snow - gc_snow)
+            snow = euro['snowfall_sum'][i]
+            temp_high = euro['temperature_2m_max'][i]
+            temp_low = euro['temperature_2m_min'][i]
             
-            # Agreement indicator
-            if diff < 0.5:
-                agreement = "✅ High"
-            elif diff < 1.0:
-                agreement = "⚠️ Moderate"
+            # Snow indicator
+            if snow >= 3.0:
+                indicator = "🔴 Heavy"
+            elif snow >= 1.0:
+                indicator = "🟡 Moderate"
+            elif snow > 0:
+                indicator = "🔵 Light"
             else:
-                agreement = "❌ Low"
+                indicator = "⚪ None"
             
-            comparison_data.append({
+            daily_data.append({
                 'Date': day_date.strftime('%a %m/%d'),
-                '🌍 ECMWF': f"{ecmwf_snow:.2f}\"",
-                '🤖 GraphCast': f"{gc_snow:.2f}\"",
-                '📊 Consensus': f"{consensus:.2f}\"",
-                'Agreement': agreement,
-                'Difference': f"±{diff:.2f}\""
+                'Snowfall': f"{snow:.2f}\"",
+                'High': f"{temp_high:.0f}°F",
+                'Low': f"{temp_low:.0f}°F",
+                'Amount': indicator
             })
         
-        df_comparison = pd.DataFrame(comparison_data)
-        st.dataframe(df_comparison, use_container_width=True, hide_index=True)
+        df_daily = pd.DataFrame(daily_data)
+        st.dataframe(df_daily, use_container_width=True, hide_index=True)
         
         st.markdown("---")
         
-        # Visual Comparison Chart
-        st.markdown("#### 📈 Visual Comparison")
+        # Visual Chart
+        st.markdown("#### 📈 7-Day Snow Forecast")
         
         fig = go.Figure()
         
@@ -269,92 +226,73 @@ with tab_forecast:
                 for i in range(min(7, len(euro['time'])))]
         
         fig.add_trace(go.Bar(
-            name='🌍 ECMWF',
             x=dates,
             y=[euro['snowfall_sum'][i] for i in range(min(7, len(euro['time'])))],
-            marker_color='#4ECDC4'
-        ))
-        
-        fig.add_trace(go.Bar(
-            name='🤖 GraphCast',
-            x=dates,
-            y=[graphcast['snowfall'][i] for i in range(min(7, len(graphcast['time'])))],
-            marker_color='#FF6B6B'
+            marker_color='#4ECDC4',
+            text=[f"{euro['snowfall_sum'][i]:.1f}\"" for i in range(min(7, len(euro['time'])))],
+            textposition='outside'
         ))
         
         fig.update_layout(
-            barmode='group',
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
             height=400,
-            title="Snow Forecast Comparison (inches)",
+            title="Expected Snowfall (inches)",
             xaxis_title="Date",
             yaxis_title="Snowfall (inches)",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            showlegend=False
         )
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Interpretation Guide
-        with st.expander("📖 How to Read This Forecast"):
+        # About ECMWF
+        with st.expander("ℹ️ About ECMWF"):
             st.markdown("""
-            **Agreement Levels:**
-            - ✅ **High Agreement** (<0.5" difference): Both models predict similar amounts. High confidence.
-            - ⚠️ **Moderate Agreement** (0.5-1.0" difference): Models differ slightly. Uncertainty exists.
-            - ❌ **Low Agreement** (>1.0" difference): Models significantly disagree. High uncertainty.
+            **ECMWF (European Centre for Medium-Range Weather Forecasts)**
             
-            **What to Do:**
-            - **High Agreement**: Plan confidently based on consensus forecast
-            - **Moderate Agreement**: Prepare for a range of outcomes
-            - **Low Agreement**: Monitor updates closely, be ready for either scenario
+            The ECMWF model is widely considered the **gold standard** for weather forecasting:
             
-            **About the Models:**
-            - **GraphCast**: Google DeepMind's AI model, trained on 40 years of weather data
-            - **ECMWF**: European Centre model, physics-based, considered the global gold standard
-            - **Consensus**: Average of both provides a middle-ground estimate
+            - 🏆 **Most Accurate**: Consistently ranks #1 in forecast accuracy
+            - 🌍 **Global Coverage**: Uses data from worldwide weather stations
+            - 🔬 **Physics-Based**: Advanced atmospheric modeling
+            - 📊 **Trusted Worldwide**: Used by meteorologists globally
+            
+            **Snow Categories:**
+            - 🔴 **Heavy** (3"+ per day): Major snow event
+            - 🟡 **Moderate** (1-3" per day): Significant accumulation  
+            - 🔵 **Light** (<1" per day): Minor accumulation
+            - ⚪ **None**: No snow expected
             """)
     
-    elif not graphcast:
-        st.info("🤖 GraphCast AI model data loading... Refresh in a moment.")
-    elif not euro:
-        st.error("❌ Unable to load ECMWF forecast data")
+    else:
+        st.error("❌ Unable to load ECMWF forecast data. Please refresh.")
 
 # --- TAB 2: RADAR & DATA ---
 with tab_radar:
     # --- MULTI-LEVEL RADAR SECTION ---
     st.markdown("### 📡 Live Doppler Radar - Multi-Scale View")
     
-    # Local and Regional Radars
-    rad_col1, rad_col2 = st.columns(2)
-    
-    with rad_col1:
-        st.markdown("#### 📍 Local Radar (KGSP)")
-        st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
-                 caption=f"Greenville-Spartanburg | {nc_time.strftime('%I:%M %p')}", 
-                 use_container_width=True)
-        st.caption("🔄 Updates every 5 minutes | Coverage: 100 mile radius")
-    
-    with rad_col2:
-        st.markdown("#### 🗺️ Regional Radar")
-        st.image(f"https://radar.weather.gov/ridge/standard/KAKQ_NCR_loop.gif?t={ts}", 
-                 caption=f"North Carolina Regional Composite", 
-                 use_container_width=True)
-        st.caption("🔄 Updates every 5 minutes | Coverage: NC & surrounding states")
+    # Single Local Radar on top
+    st.markdown("#### 📍 Local Radar (KGSP)")
+    st.image(f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}", 
+             caption=f"Greenville-Spartanburg | {nc_time.strftime('%I:%M %p')}", 
+             use_container_width=True)
+    st.caption("🔄 Updates every 5 minutes | Coverage: 100 mile radius")
     
     st.markdown("---")
     
-    # Southeastern and National Radars
-    rad_col3, rad_col4 = st.columns(2)
+    # Southeastern and National Radars side by side
+    rad_col1, rad_col2 = st.columns(2)
     
-    with rad_col3:
+    with rad_col1:
         st.markdown("#### 🌎 Southeastern US")
         st.image(f"https://radar.weather.gov/ridge/standard/SOUTHEAST_loop.gif?t={ts}", 
                  caption="Southeast Composite Radar", 
                  use_container_width=True)
         st.caption("🔄 Updates every 5 minutes | Coverage: All southeastern states")
     
-    with rad_col4:
+    with rad_col2:
         st.markdown("#### 🇺🇸 National Radar")
         st.image(f"https://radar.weather.gov/ridge/standard/CONUS_loop.gif?t={ts}", 
                  caption="Continental US Composite", 
@@ -388,5 +326,5 @@ with tab_radar:
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF Model • GraphCast AI (Google DeepMind)")
-st.caption("**Stephanie's Snow Forecaster** | Bonnie Lane Edition | Enhanced with AI")
+st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF Model")
+st.caption("**Stephanie's Snow Forecaster** | Bonnie Lane Edition | ECMWF Powered")
