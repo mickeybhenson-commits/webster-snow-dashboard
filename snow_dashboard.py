@@ -72,7 +72,7 @@ nc_time = pd.Timestamp.now(tz='US/Eastern')
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://64.media.tumblr.com/f722ffb4624171f3ab2e727913e93ae2/tumblr_p14oecN2Wx1ro8ysbo1_500.gif", caption="Bonnie Lane Snow Patrol")
+    st.image("https://i.etsystatic.com/19416137/r/il/7f5cc7/2897177386/il_570xN.2897177386_co24.jpg", caption="Bonnie Lane Snow Patrol")
     st.markdown("### ❄️ Controls")
     if st.button("✨ Let it Snow!"): st.snow()
     if st.button("🔄 Force Refresh"): st.cache_data.clear(); st.rerun()
@@ -141,21 +141,17 @@ if alerts:
         </div>
         """, unsafe_allow_html=True)
 
-# --- EMBEDDED VIDEO ---
+# --- FEATURED IMAGE ---
 st.markdown("""
 <div style="background-color: rgba(20, 30, 40, 0.75); 
             border: 2px solid rgba(255, 255, 255, 0.2); 
             border-radius: 12px; 
             padding: 20px;
-            margin: 20px 0;">
-    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
-        <iframe src="https://www.youtube.com/embed/qZEcMFj4sgA" 
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; border-radius: 8px;"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowfullscreen
-                title="Embedded Video">
-        </iframe>
-    </div>
+            margin: 20px 0;
+            text-align: center;">
+    <img src="https://i.etsystatic.com/19416137/r/il/7f5cc7/2897177386/il_570xN.2897177386_co24.jpg" 
+         style="max-width: 100%; height: auto; border-radius: 8px; border: 2px solid #a6c9ff;"
+         alt="Snow Scene">
 </div>
 """, unsafe_allow_html=True)
 
