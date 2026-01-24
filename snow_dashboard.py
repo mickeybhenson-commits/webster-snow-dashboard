@@ -5,11 +5,15 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 from datetime import datetime, timedelta
+import json
 
 # --- CONFIGURATION ---
 LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
+
+# NCDOT Region (Webster is in Division 14 - Western NC)
+NCDOT_DIVISION = 14
 
 st.set_page_config(page_title="Stephanie's Snow & Ice Forecaster: Bonnie Lane Edition", page_icon="❄️", layout="wide")
 
@@ -58,6 +62,7 @@ st.markdown("""
     .alert-red { background-color: #C62828; border-left: 10px solid #FFCDD2; }
     .alert-orange { background-color: #EF6C00; border-left: 10px solid #FFE0B2; }
     .alert-ice { background-color: #1565C0; border-left: 10px solid #90CAF9; }
+    .alert-green { background-color: #2E7D32; border-left: 10px solid #A5D6A7; }
     
     /* 5. Headers & Images */
     img { border: 2px solid #a6c9ff; border-radius: 10px; }
@@ -65,6 +70,11 @@ st.markdown("""
     
     /* 6. Clean Divider */
     hr { margin-top: 5px; margin-bottom: 5px; border-color: #444; }
+    
+    /* 7. Road Status Indicators */
+    .road-open { color: #4CAF50; font-weight: bold; }
+    .road-caution { color: #FFC107; font-weight: bold; }
+    .road-closed { color: #F44336; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -79,12 +89,16 @@ with st.sidebar:
     st.markdown("---")
     st.caption(f"Last Updated:\n{nc_time.strftime('%I:%M:%S %p')}")
     st.markdown("---")
-    st.markdown("### 🧊 Ice Forecast")
-    st.caption("Now includes freezing rain, ice accumulation, and temperature profiles")
+    st.markdown("### 🌧️ Features")
+    st.caption("✓ Snow Forecast")
+    st.caption("✓ Ice Analysis")
+    st.caption("✓ Rainfall + Ice Formation")
+    st.caption("✓ NCDOT Road Conditions")
+    st.caption("✓ Temperature Profiles")
 
 # --- HEADER ---
 st.title("❄️🧊 Stephanie's Snow & Ice Forecaster")
-st.markdown("#### *Bonnie Lane Edition - ECMWF Powered with Ice Analysis*")
+st.markdown("#### *Bonnie Lane Edition - ECMWF Powered with Ice Analysis & NCDOT Road Data*")
 st.caption(f"Webster, NC | European Centre Gold Standard Model | {nc_time.strftime('%A, %b %d %I:%M %p')}")
 
 ts = int(time.time())
@@ -137,6 +151,95 @@ def get_euro_snow_ice():
         return daily_data, hourly_data
     except: 
         return None, None
+
+@st.cache_data(ttl=300)
+def get_ncdot_road_conditions():
+    """Get NCDOT road conditions and incidents"""
+    try:
+        # NCDOT uses the Traveler Information Management System (TIMS)
+        # The public-facing API endpoint for incidents and road conditions
+        url = "https://tims.ncdot.gov/tims/api/events"
+        
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        else:
+            return None
+    except Exception as e:
+        st.warning(f"NCDOT API temporarily unavailable: {e}")
+        return None
+
+@st.cache_data(ttl=300)
+def get_ncdot_travel_advisories():
+    """Get NCDOT travel advisories and alerts"""
+    try:
+        # NCDOT Travel Advisory feed
+        url = "https://tims.ncdot.gov/tims/api/advisories"
+        
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+    except:
+        return None
+
+def filter_nearby_incidents(incidents, max_distance_miles=50):
+    """Filter incidents near Webster, NC"""
+    if not incidents:
+        return []
+    
+    nearby = []
+    for incident in incidents:
+        # Calculate approximate distance (simplified)
+        if 'latitude' in incident and 'longitude' in incident:
+            lat_diff = abs(float(incident['latitude']) - LAT)
+            lon_diff = abs(float(incident['longitude']) - LON)
+            
+            # Rough distance calculation (1 degree ≈ 69 miles)
+            distance = ((lat_diff ** 2 + lon_diff ** 2) ** 0.5) * 69
+            
+            if distance <= max_distance_miles:
+                incident['distance_miles'] = round(distance, 1)
+                nearby.append(incident)
+    
+    return sorted(nearby, key=lambda x: x.get('distance_miles', 999))
+
+def get_key_routes_webster():
+    """Define key routes around Webster, NC"""
+    return [
+        {
+            'name': 'US-23/74 (Great Smoky Mountains Expressway)',
+            'description': 'Main east-west corridor to Asheville and Atlanta',
+            'importance': 'Critical',
+            'winter_concern': 'High - Mountain passes, prone to ice'
+        },
+        {
+            'name': 'US-441 (Smoky Mountain Highway)',
+            'description': 'Route to Cherokee and Great Smoky Mountains',
+            'importance': 'High',
+            'winter_concern': 'Extreme - High elevation, frequent closures'
+        },
+        {
+            'name': 'NC-107',
+            'description': 'Scenic route to Cashiers and Highlands',
+            'importance': 'Medium',
+            'winter_concern': 'High - Winding mountain road'
+        },
+        {
+            'name': 'Balsam Mountain Road',
+            'description': 'Local mountain route',
+            'importance': 'Low',
+            'winter_concern': 'Extreme - Steep grades, often impassable'
+        },
+        {
+            'name': 'NC-116 (Webster Road)',
+            'description': 'Local connector',
+            'importance': 'Medium',
+            'winter_concern': 'Moderate - Some elevation changes'
+        }
+    ]
 
 def calculate_ice_accumulation(hourly_data):
     """Calculate ice accumulation from hourly data"""
@@ -191,6 +294,62 @@ def calculate_ice_accumulation(hourly_data):
     
     return ice_by_day
 
+def analyze_rainfall_ice_formation(hourly_data):
+    """Analyze when rainfall could freeze based on temperature transitions"""
+    if not hourly_data:
+        return {}
+    
+    ice_formation_events = []
+    
+    for i in range(len(hourly_data['time']) - 1):
+        dt = pd.to_datetime(hourly_data['time'][i])
+        next_dt = pd.to_datetime(hourly_data['time'][i + 1])
+        
+        temp = hourly_data['temperature_2m'][i]
+        next_temp = hourly_data['temperature_2m'][i + 1]
+        rain = hourly_data['rain'][i]
+        next_rain = hourly_data['rain'][i + 1]
+        
+        # Scenario 1: Rain is falling and temperature drops below freezing
+        if rain > 0 and temp > 32 and next_temp <= 32:
+            ice_formation_events.append({
+                'start_time': dt,
+                'end_time': next_dt,
+                'event_type': 'Rain Transition to Ice',
+                'rainfall': rain,
+                'start_temp': temp,
+                'end_temp': next_temp,
+                'risk': 'High - Black Ice Likely'
+            })
+        
+        # Scenario 2: Recent rain (wet surfaces) and temperature dropping to freezing
+        if i >= 3:  # Look back a few hours
+            recent_rain = sum([hourly_data['rain'][j] for j in range(max(0, i-3), i)])
+            if recent_rain > 0.05 and temp > 32 and next_temp <= 32:
+                ice_formation_events.append({
+                    'start_time': dt,
+                    'end_time': next_dt,
+                    'event_type': 'Wet Surfaces Freezing',
+                    'rainfall': recent_rain,
+                    'start_temp': temp,
+                    'end_temp': next_temp,
+                    'risk': 'Moderate - Refreezing Expected'
+                })
+        
+        # Scenario 3: Freezing rain (rain while temp below 32)
+        if rain > 0 and temp <= 32 and temp >= 28:
+            ice_formation_events.append({
+                'start_time': dt,
+                'end_time': next_dt,
+                'event_type': 'Freezing Rain',
+                'rainfall': rain,
+                'start_temp': temp,
+                'end_temp': next_temp,
+                'risk': 'Extreme - Immediate Ice Accumulation'
+            })
+    
+    return ice_formation_events
+
 # --- ALERT BANNER ---
 alerts = get_nws_alerts()
 if alerts:
@@ -212,13 +371,23 @@ if alerts:
         """, unsafe_allow_html=True)
 
 # --- FETCH DATA ---
-with st.spinner("Loading weather intelligence..."):
+with st.spinner("Loading weather intelligence and road conditions..."):
     euro_daily, euro_hourly = get_euro_snow_ice()
     nws = get_nws_text()
     ice_data = calculate_ice_accumulation(euro_hourly)
+    ice_formation_events = analyze_rainfall_ice_formation(euro_hourly)
+    ncdot_incidents = get_ncdot_road_conditions()
+    ncdot_advisories = get_ncdot_travel_advisories()
 
 # --- TABS ---
-tab_forecast, tab_ice, tab_radar, tab_outlook = st.tabs(["❄️ Snow Forecast", "🧊 Ice Forecast", "📡 Radar & Data", "🌨️ Winter Outlook"])
+tab_forecast, tab_ice, tab_rainfall, tab_roads, tab_radar, tab_outlook = st.tabs([
+    "❄️ Snow Forecast", 
+    "🧊 Ice Forecast", 
+    "🌧️ Rainfall & Ice Formation",
+    "🚗 NCDOT Road Conditions",
+    "📡 Radar & Data", 
+    "🌨️ Winter Outlook"
+])
 
 # --- TAB 1: SNOW FORECAST ---
 with tab_forecast:
@@ -487,7 +656,7 @@ with tab_ice:
         st.markdown("---")
         
         # Ice Risk Explanation
-        with st.expander("🧊 Understanding Ice Accumulation & Risk Levels", expanded=True):
+        with st.expander("🧊 Understanding Ice Accumulation & Risk Levels"):
             st.markdown("""
             ### Ice Risk Categories
             
@@ -515,81 +684,336 @@ with tab_ice:
             **⚪ NO RISK**
             - No freezing rain expected
             - Safe conditions
-            
-            ---
-            
-            ### Temperature Zones
-            
-            **🧊 Ice Zone: 28°F - 32°F**
-            - Freezing rain most likely
-            - Liquid precipitation freezes on contact
-            - Most dangerous for accumulation
-            
-            **❄️ Snow Zone: Below 28°F**
-            - Precipitation falls as snow
-            - Less infrastructure danger
-            - Accumulation on roads
-            
-            **🌧️ Rain Zone: Above 32°F**
-            - Liquid precipitation
-            - No freezing on contact
-            - Flooding possible with heavy rain
-            
-            ---
-            
-            ### Critical Infrastructure Impacts
-            
-            **Power Lines:**
-            - 0.25" ice = significant outage risk
-            - 0.50" ice = major outages likely
-            - Ice + wind = extreme danger
-            
-            **Trees:**
-            - 0.25" ice = limb breakage starts
-            - 0.50" ice = major tree damage
-            - Southern trees more vulnerable
-            
-            **Roads:**
-            - Any ice accumulation = hazardous
-            - Bridges freeze first
-            - Black ice invisible danger
-            
-            **Travel:**
-            - Even trace ice = use extreme caution
-            - 0.10"+ ice = avoid travel if possible
-            - 0.25"+ ice = travel not recommended
-            """)
-        
-        with st.expander("⏰ Ice Event Timing & Duration"):
-            st.markdown("""
-            ### How to Use This Forecast
-            
-            **Freezing Hours** = Number of hours with freezing rain conditions
-            
-            **Typical Ice Event Timeline:**
-            1. **Pre-Event (6-12 hours before)**: Temperatures drop to freezing
-            2. **Onset**: Precipitation begins, starts as rain or mix
-            3. **Peak Icing (shown in forecast)**: Freezing rain accumulates
-            4. **Transition**: May change to sleet, snow, or regular rain
-            5. **Post-Event**: Melting begins as temps rise
-            
-            **Planning Recommendations:**
-            - **12+ hours before**: Stock supplies, charge devices
-            - **6 hours before**: Bring in sensitive plants, protect pipes
-            - **During event**: Stay off roads, monitor power
-            - **After event**: Wait for official all-clear before travel
-            
-            **Webster, NC Considerations:**
-            - Elevation matters: Higher = colder = more ice possible
-            - Mountain valleys can trap cold air
-            - South-facing slopes warm faster
-            - North-facing slopes ice stays longer
             """)
     
     else:
         st.error("❌ Unable to load ice forecast data. Please refresh.")
 
-# --- TAB 3: RADAR & DATA ---
+# --- TAB 3: RAINFALL & ICE FORMATION ---
+with tab_rainfall:
+    st.markdown("### 🌧️ Rainfall Forecast & Ice Formation Analysis")
+    st.caption("Predicting when rainfall will freeze based on temperature transitions")
+    
+    if euro_daily and euro_hourly:
+        # Summary metrics
+        total_rain = sum(euro_daily['rain_sum'][:7])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("7-Day Rainfall", f"{total_rain:.2f}\"", 
+                     help="Total rainfall expected over the next week")
+        with col2:
+            st.metric("Ice Formation Events", len(ice_formation_events),
+                     help="Number of times rain could freeze")
+        with col3:
+            high_risk_events = len([e for e in ice_formation_events if 'Extreme' in e['risk'] or 'High' in e['risk']])
+            st.metric("High Risk Events", high_risk_events,
+                     help="Critical ice formation periods")
+        
+        st.markdown("---")
+        
+        # Daily Rainfall Table
+        st.markdown("#### 📅 7-Day Rainfall Forecast")
+        
+        rainfall_data = []
+        for i in range(min(7, len(euro_daily['time']))):
+            day_date = pd.to_datetime(euro_daily['time'][i])
+            rain = euro_daily['rain_sum'][i]
+            temp_high = euro_daily['temperature_2m_max'][i]
+            temp_low = euro_daily['temperature_2m_min'][i]
+            
+            # Check if this day has ice formation events
+            day_start = day_date.replace(hour=0, minute=0, second=0)
+            day_end = day_date.replace(hour=23, minute=59, second=59)
+            
+            day_events = [e for e in ice_formation_events 
+                         if day_start <= e['start_time'] <= day_end]
+            
+            ice_formation = ""
+            if day_events:
+                max_risk_event = max(day_events, key=lambda x: x['rainfall'])
+                if 'Extreme' in max_risk_event['risk']:
+                    ice_formation = "🔴 EXTREME"
+                elif 'High' in max_risk_event['risk']:
+                    ice_formation = "🟡 HIGH"
+                else:
+                    ice_formation = "🔵 MODERATE"
+            else:
+                ice_formation = "⚪ None"
+            
+            # Rainfall indicator
+            if rain >= 0.5:
+                rain_level = "Heavy"
+            elif rain >= 0.25:
+                rain_level = "Moderate"
+            elif rain > 0:
+                rain_level = "Light"
+            else:
+                rain_level = "None"
+            
+            rainfall_data.append({
+                'Date': day_date.strftime('%a %m/%d'),
+                'Rainfall': f"{rain:.2f}\"",
+                'Amount': rain_level,
+                'High/Low': f"{temp_high:.0f}°F / {temp_low:.0f}°F",
+                'Ice Formation Risk': ice_formation
+            })
+        
+        df_rain = pd.DataFrame(rainfall_data)
+        st.dataframe(df_rain, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        
+        # Ice Formation Events
+        if ice_formation_events:
+            st.markdown("#### 🧊 Ice Formation Events - Detailed Timeline")
+            st.caption("Critical periods when rainfall will freeze")
+            
+            for event in ice_formation_events[:20]:  # Show up to 20 events
+                start_time = event['start_time'].strftime('%a %m/%d %I:%M %p')
+                end_time = event['end_time'].strftime('%I:%M %p')
+                
+                # Determine alert style
+                if 'Extreme' in event['risk']:
+                    alert_style = "alert-red"
+                elif 'High' in event['risk']:
+                    alert_style = "alert-orange"
+                else:
+                    alert_style = "alert-ice"
+                
+                st.markdown(f"""
+                <div class="alert-box {alert_style}">
+                    <h4>{event['event_type']}</h4>
+                    <p><strong>Time:</strong> {start_time} - {end_time}</p>
+                    <p><strong>Risk Level:</strong> {event['risk']}</p>
+                    <p><strong>Rainfall:</strong> {event['rainfall']:.3f}" | <strong>Temp:</strong> {event['start_temp']:.1f}°F → {event['end_temp']:.1f}°F</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("✅ No ice formation events detected in the 7-day forecast period.")
+    
+    else:
+        st.error("❌ Unable to load rainfall forecast data. Please refresh.")
+
+# --- TAB 4: NCDOT ROAD CONDITIONS ---
+with tab_roads:
+    st.markdown("### 🚗 NCDOT Road Conditions & Travel Information")
+    st.caption("Real-time road status, incidents, and travel advisories for Jackson County & Western NC")
+    
+    # Quick Links
+    st.markdown("#### 🔗 Official NCDOT Resources")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("🌐 [**DriveNC.gov**](https://drivenc.gov) - Live traffic map")
+    with col2:
+        st.markdown("📞 **511** - NC Travel Information")
+    with col3:
+        st.markdown("🗺️ [**NCDOT Div 14**](https://www.ncdot.gov/divisions/highways/regional-operations/Pages/division-14.aspx) - Western NC")
+    
+    st.markdown("---")
+    
+    # Key Routes for Webster Area
+    st.markdown("#### 🛣️ Key Routes - Webster, NC Area")
+    
+    key_routes = get_key_routes_webster()
+    
+    for route in key_routes:
+        importance_color = {
+            'Critical': 'alert-red',
+            'High': 'alert-orange',
+            'Medium': 'alert-ice',
+            'Low': 'alert-purple'
+        }.get(route['importance'], 'alert-ice')
+        
+        st.markdown(f"""
+        <div class="alert-box {importance_color}">
+            <h4>{route['name']}</h4>
+            <p><strong>Description:</strong> {route['description']}</p>
+            <p><strong>Importance:</strong> {route['importance']} | <strong>Winter Concern:</strong> {route['winter_concern']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # NCDOT Incidents
+    if ncdot_incidents:
+        st.markdown("#### 🚨 Active Incidents & Road Conditions")
+        st.caption("Within 50 miles of Webster, NC")
+        
+        nearby_incidents = filter_nearby_incidents(ncdot_incidents, max_distance_miles=50)
+        
+        if nearby_incidents:
+            for incident in nearby_incidents[:10]:  # Show top 10 closest
+                # Determine severity
+                severity = incident.get('severity', 'Unknown')
+                event_type = incident.get('type', 'Incident')
+                
+                if 'closure' in event_type.lower() or 'closed' in severity.lower():
+                    alert_class = 'alert-red'
+                    icon = '🚫'
+                elif 'delay' in event_type.lower() or 'construction' in event_type.lower():
+                    alert_class = 'alert-orange'
+                    icon = '🚧'
+                else:
+                    alert_class = 'alert-ice'
+                    icon = '⚠️'
+                
+                location = incident.get('location', 'Location not specified')
+                description = incident.get('description', 'No details available')
+                distance = incident.get('distance_miles', 'Unknown')
+                
+                st.markdown(f"""
+                <div class="alert-box {alert_class}">
+                    <h4>{icon} {event_type}</h4>
+                    <p><strong>Location:</strong> {location} ({distance} miles from Webster)</p>
+                    <p><strong>Details:</strong> {description}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="alert-box alert-green">
+                <h4>✅ No Active Incidents</h4>
+                <p>No road incidents or closures reported within 50 miles of Webster, NC.</p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("📡 NCDOT incident data currently unavailable. Check DriveNC.gov for latest updates.")
+    
+    st.markdown("---")
+    
+    # Winter Travel Tips for Mountain Roads
+    with st.expander("❄️ Winter Travel Tips - Mountain Roads", expanded=True):
+        st.markdown("""
+        ### Before You Travel
+        
+        **Check Conditions:**
+        - 📞 Call 511 or visit DriveNC.gov
+        - ❄️ Monitor this forecast for snow/ice predictions
+        - 🌡️ Check current temperatures at elevation
+        
+        **Vehicle Preparation:**
+        - ⛽ Keep gas tank above half full
+        - 🚗 Check tire tread and pressure
+        - 🔦 Emergency kit: blankets, flashlight, food, water
+        - 📱 Fully charged phone + car charger
+        
+        ### Mountain Road Safety
+        
+        **Elevation Changes:**
+        - Temperature drops ~3°F per 1,000 feet
+        - Webster (2,100 ft) to Balsam Gap (3,370 ft) = 4°F difference
+        - Road may be icy at higher elevations even if clear in town
+        
+        **Bridges & Overpasses:**
+        - Freeze FIRST and thaw LAST
+        - Reduce speed approaching bridges
+        - Watch for black ice (invisible)
+        
+        **Critical Routes:**
+        - **US-441**: Extreme winter hazard, frequent closures
+        - **US-23/74**: Main artery, well-maintained but watch mountain passes
+        - **NC-107**: Winding, shaded sections stay icy longer
+        
+        **If You Get Stuck:**
+        1. Stay with your vehicle
+        2. Call 911 and 511
+        3. Run engine 10 min/hour for heat
+        4. Keep exhaust clear of snow
+        5. Use hazard lights
+        
+        ### When NOT to Travel
+        
+        **Avoid Roads When:**
+        - 🔴 Ice accumulation forecast > 0.10"
+        - 🟡 Active freezing rain falling
+        - 🌨️ Snowfall rate > 1" per hour
+        - 🌡️ Temperature at or below 32°F with wet roads
+        - 🌙 Overnight hours when temperatures drop
+        
+        **NCDOT Priority:**
+        - US routes cleared first
+        - State routes next
+        - Secondary roads last
+        - May take 6-12 hours for all routes
+        """)
+    
+    with st.expander("📞 Emergency Contacts & Resources"):
+        st.markdown("""
+        ### Emergency Numbers
+        
+        - **911** - Emergency services
+        - **511** - NC Travel Information (or 1-877-511-4662)
+        - **(828) 586-7500** - NCDOT Division 14 (Western NC)
+        - **(828) 586-5226** - Jackson County Sheriff (non-emergency)
+        
+        ### Online Resources
+        
+        - **DriveNC.gov** - Live traffic and road conditions
+        - **NCDOT Twitter** - @NCDOT_Div14 (Western NC updates)
+        - **ReadyNC.gov** - Emergency preparedness
+        - **Weather.gov/GSP** - NWS Greenville-Spartanburg forecast
+        
+        ### Road Condition Reporting
+        
+        **Report Issues:**
+        - Downed trees, power lines, ice/snow problems
+        - Use DriveNC.gov mobile app
+        - Call 511
+        - Tweet @NCDOT with location
+        
+        ### County-Specific
+        
+        **Jackson County:**
+        - Sheriff: (828) 586-8901
+        - Emergency Management: (828) 631-8050
+        - Road Maintenance: (828) 586-7500
+        """)
+    
+    # Current Travel Recommendation
+    st.markdown("---")
+    st.markdown("#### 🚦 Current Travel Recommendation")
+    
+    # Base recommendation on forecast data
+    if euro_daily and ice_data:
+        today_key = nc_time.strftime('%Y-%m-%d')
+        
+        if today_key in ice_data:
+            ice_risk = ice_data[today_key]['ice_risk']
+            ice_accum = ice_data[today_key]['ice_accum']
+        else:
+            ice_risk = 'None'
+            ice_accum = 0
+        
+        today_snow = euro_daily['snowfall_sum'][0] if len(euro_daily['snowfall_sum']) > 0 else 0
+        today_low = euro_daily['temperature_2m_min'][0] if len(euro_daily['temperature_2m_min']) > 0 else 40
+        
+        # Determine travel status
+        if ice_risk == 'High' or ice_accum >= 0.25 or today_snow >= 3.0:
+            travel_status = "🔴 AVOID TRAVEL"
+            status_desc = "Hazardous conditions expected. Avoid non-essential travel."
+            status_class = "alert-red"
+        elif ice_risk == 'Moderate' or ice_accum >= 0.10 or today_snow >= 1.0 or today_low <= 28:
+            travel_status = "🟡 CAUTION ADVISED"
+            status_desc = "Difficult conditions possible. Use extreme caution and allow extra time."
+            status_class = "alert-orange"
+        elif ice_risk == 'Low' or today_low <= 32:
+            travel_status = "🔵 USE CAUTION"
+            status_desc = "Minor hazards possible. Watch for icy spots, especially on bridges."
+            status_class = "alert-ice"
+        else:
+            travel_status = "✅ NORMAL CONDITIONS"
+            status_desc = "No significant weather-related travel hazards expected."
+            status_class = "alert-green"
+        
+        st.markdown(f"""
+        <div class="alert-box {status_class}">
+            <h3>{travel_status}</h3>
+            <p>{status_desc}</p>
+            <p><strong>Today's Forecast:</strong> {today_snow:.1f}\" snow, {ice_accum:.2f}\" ice, Low: {today_low:.0f}°F</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- TAB 5: RADAR & DATA ---
 with tab_radar:
     # --- MULTI-LEVEL RADAR SECTION ---
     st.markdown("### 📡 Live Doppler Radar - Multi-Scale View")
@@ -643,11 +1067,13 @@ with tab_radar:
             st.markdown("### ❄️ Quick Stats")
             next_7_days_snow = sum(euro_daily['snowfall_sum'][:7])
             next_7_days_ice = sum([ice_data[day]['ice_accum'] for day in ice_data])
+            next_7_days_rain = sum(euro_daily['rain_sum'][:7])
             st.metric("Next 7 Days Snow", f"{next_7_days_snow:.1f}\"")
             st.metric("Next 7 Days Ice", f"{next_7_days_ice:.2f}\"")
+            st.metric("Next 7 Days Rain", f"{next_7_days_rain:.2f}\"")
 
 
-# --- TAB 4: WINTER OUTLOOK ---
+# --- TAB 6: WINTER OUTLOOK ---
 with tab_outlook:
     st.markdown("### 🌨️ Winter 2025-2026 Outlook for Webster, NC")
     st.caption("Seasonal forecast for Southern Appalachian Mountains")
@@ -703,157 +1129,6 @@ with tab_outlook:
     
     st.markdown("---")
     
-    # Detailed Outlook
-    st.markdown("### 📋 Detailed Winter Outlook")
-    
-    with st.expander("🎯 Why Webster is in the Sweet Spot", expanded=True):
-        st.markdown("""
-        **Southern Appalachian Advantage:**
-        
-        Webster, NC sits in the **Southern Appalachian Mountains** — exactly where forecasters are predicting 
-        the heaviest snowfall this winter!
-        
-        **Key Factors:**
-        - 🌊 **La Niña Pattern**: Steering jet stream toward Appalachians
-        - 🎯 **Storm Track**: Multiple opportunities for mountain snow
-        - ⛰️ **Elevation**: High enough for reliable snow vs. rain
-        - 📍 **Geography**: Southern mountains favored over northern peaks
-        
-        **What Forecasters Say:**
-        - "Greater amounts of snow expected in southern Appalachians"
-        - "Snowfall below normal in north, above normal in south"
-        - "Multiple storm opportunities, especially central and southern Appalachians"
-        - "Colder than usual with heavier snow in southern mountains"
-        """)
-    
-    with st.expander("📅 Month-by-Month Breakdown"):
-        st.markdown("""
-        ### December 2025
-        - 🌡️ Cold periods: Mid and late December
-        - ❄️ Snowfall: Possible around Christmas week
-        - 📊 Outlook: Seasonably cool to cold
-        
-        ### January 2026 ⭐ **PEAK MONTH**
-        - 🌡️ Very cold start (Jan 1-10)
-        - ❄️ Snow showers (Jan 11-17)
-        - 🌨️ **Major snow potential (Jan 23-24)** — Southern mountains
-        - ⚠️ Late January: Prime snow window
-        - 📊 Outlook: Coldest period, multiple snow chances
-        
-        ### February 2026
-        - ❄️ Early February: Good snow potential
-        - 🌨️ Late February: Another active period
-        - 📊 Outlook: Continued cold and active
-        
-        ### March 2026
-        - ❄️ Mid-March: Final snow opportunities
-        - 🌡️ Gradual warming late month
-        - 📊 Outlook: Transition to spring
-        """)
-    
-    with st.expander("📖 Farmer's Almanac Detailed Forecast"):
-        st.markdown("""
-        ### 🌨️ Appalachian Region - January 2026
-        
-        **Day-by-Day Predictions from Farmer's Almanac:**
-        
-        **January 1-10:**
-        - Very cold temperatures
-        - Northern flurries possible
-        - Bundle up for frigid start to New Year
-        
-        **January 11-17:**
-        - Mild temperatures
-        - Snow showers likely
-        - Good accumulation potential
-        
-        **January 18-22:**
-        - Sunny and mild
-        - Break between systems
-        - Enjoy the quiet period
-        
-        **January 23-24:** ⭐ **BIG SNOW WINDOW**
-        - Chilly temperatures return
-        - **Southern mountains snow event**
-        - Prime opportunity for Webster area
-        
-        **January 25-31:**
-        - Northern mountains: Snow
-        - Southern areas: Mix of snow and rain
-        - Elevation will be key
-        
-        ---
-        
-        ### ❄️ Winter Season Totals (Dec-Feb)
-        
-        **Snowfall Forecast:**
-        - **Below normal** in the north
-        - **Above normal** in the south ✅
-        - Webster is in the "above normal" zone!
-        
-        **Snowiest Periods:**
-        - Late December
-        - **Late January** ⭐ (Best chance)
-        - Early February
-        - Late February
-        - Mid-March
-        
-        **Temperature Forecast:**
-        - **Colder than usual** overall
-        - Split pattern: North vs. South
-        - "Bundle up and prep for winter chores—especially in the southern mountains"
-        
-        ---
-        
-        ### 🎯 What This Means for Webster:
-        
-        ✅ **Multiple snow opportunities** throughout winter
-        
-        ✅ **Late January = Peak window** (Jan 23-24 highlighted)
-        
-        ✅ **Above-normal snowfall** for southern mountains
-        
-        ✅ **Colder temps** support snow vs. rain
-        
-        ⚠️ **Elevation matters** - Higher = more snow (Webster benefits!)
-        """)
-    
-    with st.expander("📊 Historical Context"):
-        st.markdown("""
-        **La Niña Winter Pattern:**
-        
-        This winter features a **weak La Niña** — the same pattern that often brings good snow 
-        to the Southern Appalachians while keeping coastal areas dry.
-        
-        **What This Means:**
-        - ✅ Mountains: Above-normal snowfall likely
-        - ❌ Coast: Below-normal snowfall expected
-        - 🎯 Webster: In the favored zone!
-        
-        **Similar Winters:**
-        - Multiple past La Niña winters brought significant mountain snow
-        - Pattern favors "clipper" systems and occasional bigger storms
-        - Southern mountains often outperform northern peaks in this setup
-        """)
-    
-    with st.expander("🎿 Ski Resort Outlook"):
-        st.markdown("""
-        **Great News for Western NC Ski Areas:**
-        
-        Forecasters specifically mention favorable conditions for:
-        - **Snowshoe, WV** (north)
-        - **Boone, NC** (near Webster)
-        - **Gatlinburg, TN** (south)
-        
-        **What to Expect:**
-        - ✅ Natural snowfall above normal
-        - ✅ Cold temps for snowmaking
-        - ✅ Multiple storm opportunities
-        - ⚠️ Mountain passes (I-77, I-26) may see hazardous travel
-        """)
-    
-    st.markdown("---")
-    
     # Bottom Line
     st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -881,5 +1156,5 @@ with tab_outlook:
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF Model")
-st.caption("**Stephanie's Snow & Ice Forecaster** | Bonnie Lane Edition | ECMWF Powered")
+st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF Model • NCDOT DriveNC")
+st.caption("**Stephanie's Snow & Ice Forecaster** | Bonnie Lane Edition | ECMWF + NCDOT Powered")
