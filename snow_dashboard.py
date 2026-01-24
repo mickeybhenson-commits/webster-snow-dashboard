@@ -1542,7 +1542,7 @@ with tab_radar:
     
     product_suffix = product_map.get(radar_product, "")
     
-    # Single Local Radar on top - ENHANCED WITH MULTIPLE PRODUCTS
+    # Single Local Radar on top - REDUCED SIZE FOR FASTER LOADING
     st.markdown("#### 📍 Local Radar (KGSP Greenville-Spartanburg)")
     
     if radar_type in ["Animated Loop", "Both"]:
@@ -1552,20 +1552,20 @@ with tab_radar:
             local_radar_url = f"https://radar.weather.gov/ridge/standard/KGSP{product_suffix}_0.gif?t={ts}"
             st.image(local_radar_url, 
                      caption=f"{radar_product} | {nc_time.strftime('%I:%M %p')}", 
-                     use_container_width=True)
+                     width=360)  # 30% of typical 1200px width
             st.caption("⚠️ Specialized products show latest frame only (no animation available)")
         else:
             local_radar_url = f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}"
             st.image(local_radar_url, 
                      caption=f"Base Reflectivity Loop | {nc_time.strftime('%I:%M %p')}", 
-                     use_container_width=True)
+                     width=360)  # 30% of typical width
     
     if radar_type in ["Static Snapshot", "Both"]:
         st.markdown("**High-Resolution Snapshot:**")
         local_static_url = f"https://radar.weather.gov/ridge/standard/KGSP{product_suffix}_0.gif?t={ts}"
         st.image(local_static_url,
                  caption=f"{radar_product} - Latest Frame | {nc_time.strftime('%I:%M %p')}",
-                 use_container_width=True)
+                 width=360)  # 30% of typical width
     
     st.caption("🔄 Updates every 5 minutes | Coverage: 124 mile radius | NEXRAD WSR-88D")
     
@@ -1581,11 +1581,11 @@ with tab_radar:
     st.markdown("---")
     st.markdown("#### ⚠️ Active Weather Warnings Map")
     
-    # NWS Warning Map with Webster location
+    # NWS Warning Map with Webster location - REDUCED SIZE
     warning_map_url = f"https://radar.weather.gov/ridge/standard/SOUTHEAST_0.gif?t={ts}"
     st.image(warning_map_url,
              caption=f"Southeast US with Active Warnings | {nc_time.strftime('%I:%M %p')}",
-             use_container_width=True)
+             width=360)  # 30% of typical width
     st.caption("⚠️ Warning polygons shown in red/yellow/orange | Updates automatically")
     
     # Add link to full interactive radar
@@ -1625,7 +1625,7 @@ with tab_radar:
     
     st.markdown("---")
     
-    # Regional and National Radars side by side
+    # Regional and National Radars side by side - REDUCED SIZE
     rad_col1, rad_col2 = st.columns(2)
     
     with rad_col1:
@@ -1636,14 +1636,14 @@ with tab_radar:
             se_radar_url = f"https://radar.weather.gov/ridge/standard/SOUTHEAST_loop.gif?t={ts}"
             st.image(se_radar_url, 
                      caption="Southeast Composite Loop", 
-                     use_container_width=True)
+                     width=300)  # Slightly smaller for side-by-side
         
         if radar_type in ["Static Snapshot", "Both"]:
             st.markdown("**High-Res Snapshot:**")
             se_static_url = f"https://radar.weather.gov/ridge/standard/SOUTHEAST_0.gif?t={ts}"
             st.image(se_static_url,
                      caption="Latest High-Res Frame",
-                     use_container_width=True)
+                     width=300)  # Slightly smaller for side-by-side
         
         st.caption("🔄 Updates every 5 minutes")
         st.markdown("""
@@ -1662,14 +1662,14 @@ with tab_radar:
             conus_radar_url = f"https://radar.weather.gov/ridge/standard/CONUS_loop.gif?t={ts}"
             st.image(conus_radar_url, 
                      caption="Continental US Loop", 
-                     use_container_width=True)
+                     width=300)  # Slightly smaller for side-by-side
         
         if radar_type in ["Static Snapshot", "Both"]:
             st.markdown("**High-Res Snapshot:**")
             conus_static_url = f"https://radar.weather.gov/ridge/standard/CONUS_0.gif?t={ts}"
             st.image(conus_static_url,
                      caption="Latest High-Res Frame",
-                     use_container_width=True)
+                     width=300)  # Slightly smaller for side-by-side
         
         st.caption("🔄 Updates every 10 minutes")
         st.markdown("""
@@ -1679,6 +1679,208 @@ with tab_radar:
             </a>
         </div>
         """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Alternative High-Resolution Radar Sources
+    with st.expander("🔍 Alternative Radar Sources (High Resolution)"):
+        st.markdown("""
+        ### Professional-Grade Radar Viewers
+        
+        **College of DuPage NEXRAD:**
+        - 🌐 [COD Weather](https://weather.cod.edu/satrad/)
+        - Highest resolution available
+        - Multiple products and overlays
+        - Loop controls and zoom
+        - Best for detailed analysis
+        
+        **Weather Underground:**
+        - 🌐 [WunderMap Radar](https://www.wunderground.com/wundermap)
+        - Interactive pan/zoom
+        - Multiple layers (temperature, wind, etc.)
+        - Storm tracks
+        - User-friendly interface
+        
+        **RadarScope (Paid - Professional):**
+        - Mobile app (iOS/Android)
+        - Used by meteorologists
+        - All NEXRAD products
+        - Dual-pol products
+        - Warning polygons
+        - Worth it for serious weather tracking
+        
+        **Baron Weather:**
+        - 🌐 [Baron Lynx](https://www.baronweather.com/)
+        - Professional-grade
+        - High-resolution composite
+        - Custom overlays
+        
+        **Windy.com:**
+        - 🌐 [Windy Radar](https://www.windy.com/)
+        - Beautiful interface
+        - Global coverage
+        - Wind/temperature layers
+        - ECMWF model integration
+        
+        ### Why Use Alternative Sources?
+        
+        **Higher Resolution:**
+        - Smoother animations
+        - More detail in precipitation
+        - Better color scales
+        
+        **More Features:**
+        - Multiple products at once
+        - Custom overlays
+        - Better zoom capabilities
+        - Historical playback
+        
+        **Specialized Products:**
+        - Dual-pol products
+        - Lightning overlay
+        - Warning polygons always visible
+        - Storm tracks
+        """)
+    
+    # Enhanced Radar Products Information
+    with st.expander("📊 Understanding Radar Products"):
+        st.markdown("""
+        ### Base Reflectivity (Standard)
+        **What it shows:** Precipitation intensity
+        
+        **Color Scale:**
+        - 🟢 **Green (20-35 dBZ)**: Light rain/snow (0.1-0.25" per hour)
+        - 🟡 **Yellow (35-45 dBZ)**: Moderate rain/snow (0.25-1.0" per hour)
+        - 🟠 **Orange (45-50 dBZ)**: Heavy rain/snow (1.0-2.0" per hour)
+        - 🔴 **Red (50-60 dBZ)**: Very heavy precipitation (2.0"+ per hour)
+        - 🟣 **Purple (60+ dBZ)**: Extreme precipitation or hail
+        
+        **Best for:** General precipitation tracking
+        
+        ---
+        
+        ### Precipitation Type (Dual-Pol) ⭐ BEST FOR WINTER
+        **What it shows:** Type of precipitation falling
+        
+        **Color Code:**
+        - 🔵 **Blue/Cyan**: Snow or ice crystals
+        - 🟢 **Green**: Rain
+        - 🟡 **Yellow/Orange**: Mixed (wintry mix, sleet)
+        - 🔴 **Red**: Heavy rain or melting snow
+        - 🟣 **Purple**: Large hail or very wet snow
+        
+        **Best for:** 
+        - Determining rain vs. snow line
+        - Identifying freezing rain zones
+        - Tracking wintry mix areas
+        - **MOST USEFUL FOR WINTER WEATHER**
+        
+        **How it works:**
+        - Sends both horizontal and vertical radar pulses
+        - Analyzes shape and size of precipitation
+        - Snow = irregular shapes (visible in dual-pol)
+        - Rain = round droplets
+        
+        ---
+        
+        ### Storm Total Precipitation
+        **What it shows:** Accumulated precipitation since storm began
+        
+        **Color Scale:**
+        - Light blue: 0.5-1.0 inches
+        - Blue: 1.0-2.0 inches
+        - Purple: 2.0-3.0 inches
+        - Magenta: 3.0+ inches
+        
+        **Best for:**
+        - Tracking total snowfall amounts
+        - Identifying heaviest bands
+        - Comparing forecast to actual
+        
+        **Note:** Resets when storm ends (dry period)
+        
+        ---
+        
+        ### Base Velocity (Wind)
+        **What it shows:** Wind direction and speed
+        
+        **Color Code:**
+        - 🟢 **Green**: Moving TOWARD radar
+        - 🔴 **Red**: Moving AWAY FROM radar
+        - Brighter colors = faster winds
+        
+        **Best for:**
+        - Detecting wind patterns
+        - Identifying rotation (tornadoes)
+        - Seeing wind shift lines
+        - Less useful for snow (wind-blown snow shows up)
+        
+        ---
+        
+        ### Warning Polygons
+        **What it shows:** Active NWS warnings
+        
+        **Colors:**
+        - 🔴 **Red**: Tornado Warning
+        - 🟠 **Orange**: Severe Thunderstorm Warning
+        - 🟡 **Yellow**: Flash Flood Warning
+        - 🟣 **Purple**: Winter Storm Warning
+        - 🔵 **Blue**: Winter Weather Advisory
+        
+        **Best for:**
+        - Seeing exact warning areas
+        - Knowing if you're in warned zone
+        - Multiple warnings at once
+        
+        ---
+        
+        ### Mountain Radar Considerations
+        
+        **Webster, NC at 2,100 ft elevation:**
+        - KGSP radar beam at ~2,500 ft above Webster
+        - Excellent for general precipitation
+        - May miss very low-level features
+        - Snow at higher elevations (4,000+ ft) may be missed
+        - Radar beam gets higher with distance
+        
+        **Best accuracy:**
+        - Within 60 miles of radar ✓ (Webster is ~50 miles)
+        - Below 10,000 feet elevation ✓
+        - Moderate to heavy precipitation ✓
+        
+        **May struggle with:**
+        - Very light snow
+        - Snow only at high peaks
+        - Valleys with trapped cold air
+        """)
+    
+    st.markdown("---")
+    
+    # NWS Forecast and Stats Section
+    col_left, col_right = st.columns([1.5, 1])
+    
+    with col_left:
+        st.markdown("### 🌨️ 7-Day NWS Forecast")
+        
+        if nws:
+            for period in nws[:6]:  # Show next 6 periods (3 days)
+                with st.container():
+                    st.markdown(f"**{period['name']}**")
+                    st.write(f"🌡️ {period['temperature']}°{period['temperatureUnit']}")
+                    st.write(f"🌨️ {period['shortForecast']}")
+                    st.caption(period['detailedForecast'][:150] + "...")
+                    st.markdown("---")
+    
+    with col_right:
+        # Quick Stats
+        if euro_daily and ice_data:
+            st.markdown("### ❄️ Quick Stats")
+            next_7_days_snow = sum(euro_daily['snowfall_sum'][:7])
+            next_7_days_ice = sum([ice_data[day]['ice_accum'] for day in ice_data])
+            next_7_days_rain = sum(euro_daily['rain_sum'][:7])
+            st.metric("Next 7 Days Snow", f"{next_7_days_snow:.1f}\"")
+            st.metric("Next 7 Days Ice", f"{next_7_days_ice:.2f}\"")
+            st.metric("Next 7 Days Rain", f"{next_7_days_rain:.2f}\"")
     
     st.markdown("---")
     
