@@ -254,6 +254,9 @@ def get_power_outage_risks(ice_data, euro_daily):
             })
     
     return risks
+
+@st.cache_data(ttl=300)
+def get_ncdot_road_conditions():
     """Get NCDOT road conditions and incidents"""
     try:
         # NCDOT uses the Traveler Information Management System (TIMS)
