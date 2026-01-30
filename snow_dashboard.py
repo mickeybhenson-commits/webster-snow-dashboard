@@ -234,11 +234,44 @@ with tab_forecast:
     st.markdown("### ❄️ ECMWF Snow Forecast")
     
     if euro_daily and euro_hourly:
-        # 7-Day Summary
-        total_snow = sum(euro_daily['snowfall_sum'][:7])
-        col1, col2 = st.columns([1, 2])
+        # Calculate today's remaining snow (next 12-24 hours in current calendar day)
+        now = pd.Timestamp.now(tz='US/Eastern')
+        today_key = now.strftime('%Y-%m-%d')
+        tomorrow_key = (now + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        today_remaining_snow = 0
+        for i in range(len(euro_hourly['time'])):
+            hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
+            if hour_dt >= now and hour_dt.strftime('%Y-%m-%d') == today_key:
+                today_remaining_snow += euro_hourly['snowfall'][i]
+        
+        # Calculate 7-day total from hourly data for accuracy
+        total_snow = sum([euro_hourly['snowfall'][i] for i in range(min(168, len(euro_hourly['snowfall'])))])  # 168 hours = 7 days
+        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Next 7 Days", f"{total_snow:.2f}\" snow")
+            st.metric("Rest of Today", f"{today_remaining_snow:.2f}\" snow", 
+                     help="Snow expected for remainder of today")
+        with col2:
+            st.metric("Next 7 Days", f"{total_snow:.2f}\" snow",
+                     help="Total snow over next week")
+        with col3:
+            # Time until next snow
+            next_snow_time = None
+            for i in range(len(euro_hourly['time'])):
+                hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
+                if hour_dt >= now and euro_hourly['snowfall'][i] > 0.01:
+                    next_snow_time = hour_dt
+                    break
+            
+            if next_snow_time:
+                hours_until = int((next_snow_time - now).total_seconds() / 3600)
+                if hours_until <= 0:
+                    st.metric("Snow Status", "NOW", "❄️", help="Snow is falling or starting soon!")
+                else:
+                    st.metric("Snow Starts In", f"{hours_until}hr", "⏰", help=f"Expected at {next_snow_time.strftime('%I:%M %p')}")
+            else:
+                st.metric("Next Snow", "None expected", help="No snow in 7-day forecast")
         
         st.markdown("---")
         
@@ -303,14 +336,34 @@ with tab_forecast:
         
         st.markdown("---")
         
-        # DAILY BREAKDOWN - 7 Days
+        # DAILY BREAKDOWN - 7 Days (calculated from hourly data for accuracy)
         st.markdown("#### 📅 7-Day Daily Breakdown")
+        st.caption("*Snow totals calculated from hourly forecast to show when snow actually falls*")
+        
+        # Calculate daily totals from hourly data
+        daily_totals = {}
+        for i in range(len(euro_hourly['time'])):
+            hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
+            day_key = hour_dt.strftime('%Y-%m-%d')
+            
+            if day_key not in daily_totals:
+                daily_totals[day_key] = {
+                    'snow': 0,
+                    'rain': 0,
+                    'date': hour_dt.date()
+                }
+            
+            daily_totals[day_key]['snow'] += euro_hourly['snowfall'][i]
+            daily_totals[day_key]['rain'] += euro_hourly['rain'][i]
         
         daily_data = []
         for i in range(min(7, len(euro_daily['time']))):
             day_date = pd.to_datetime(euro_daily['time'][i])
             day_key = day_date.strftime('%Y-%m-%d')
-            snow = euro_daily['snowfall_sum'][i]
+            
+            # Use hourly-calculated totals for accuracy
+            snow = daily_totals.get(day_key, {}).get('snow', 0)
+            
             temp_high = euro_daily['temperature_2m_max'][i]
             temp_low = euro_daily['temperature_2m_min'][i]
             
@@ -319,7 +372,7 @@ with tab_forecast:
                 indicator = "🔴 Heavy"
             elif snow >= 1.0:
                 indicator = "🟡 Moderate"
-            elif snow > 0:
+            elif snow > 0.05:  # Lower threshold to catch light snow
                 indicator = "🔵 Light"
             else:
                 indicator = "⚪ None"
@@ -340,6 +393,8 @@ with tab_forecast:
         df_daily = pd.DataFrame(daily_data)
         st.dataframe(df_daily, use_container_width=True, hide_index=True)
         
+        st.info("💡 **Note:** Snow falling late tonight counts toward today's total, not tomorrow's. This matches the hourly forecast above.")
+        
         st.markdown("---")
         
         # Visual Chart
@@ -347,14 +402,22 @@ with tab_forecast:
         
         fig = go.Figure()
         
-        dates = [pd.to_datetime(euro_daily['time'][i]).strftime('%a %m/%d') 
-                for i in range(min(7, len(euro_daily['time'])))]
+        # Use hourly-calculated totals for the chart
+        chart_dates = []
+        chart_snow = []
+        for i in range(min(7, len(euro_daily['time']))):
+            day_date = pd.to_datetime(euro_daily['time'][i])
+            day_key = day_date.strftime('%Y-%m-%d')
+            snow_amount = daily_totals.get(day_key, {}).get('snow', 0)
+            
+            chart_dates.append(day_date.strftime('%a %m/%d'))
+            chart_snow.append(snow_amount)
         
         fig.add_trace(go.Bar(
-            x=dates,
-            y=[euro_daily['snowfall_sum'][i] for i in range(min(7, len(euro_daily['time'])))],
+            x=chart_dates,
+            y=chart_snow,
             marker_color='#4ECDC4',
-            text=[f"{euro_daily['snowfall_sum'][i]:.1f}\"" for i in range(min(7, len(euro_daily['time'])))],
+            text=[f"{s:.1f}\"" for s in chart_snow],
             textposition='outside',
             name='Snow'
         ))
@@ -364,7 +427,7 @@ with tab_forecast:
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
             height=400,
-            title="Expected Snowfall (inches)",
+            title="Expected Snowfall by Day (inches)",
             showlegend=False
         )
         
