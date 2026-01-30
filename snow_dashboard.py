@@ -567,7 +567,7 @@ with tab_power:
     
     st.markdown("""
     #### 🗺️ Live Outage Map
-    🌐 [Duke Energy Outage Map](https://outagemap.duke-energy.com/ncsc/default.html)
+    🌐 [Duke Energy Outage Map](https://outagemap.duke-energy.com/#/current-outages/ncsc)
     
     Shows current outages, affected areas, and estimated restoration times.
     """)
