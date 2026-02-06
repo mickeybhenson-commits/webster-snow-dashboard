@@ -990,16 +990,7 @@ with tab_ice:
 
 # --- TAB 6: ROAD CONDITIONS ---
 with tab_roads:
-    st.markdown("### 🚗 NCDOT Road Conditions")
-    
-    st.markdown("""
-    #### 🔗 Official Resources
-    - 🌐 [DriveNC.gov](https://drivenc.gov) - Live traffic map
-    - 📞 **511** - NC Travel Information
-    - 🗺️ [NCDOT Division 14](https://www.ncdot.gov/divisions/highways/regional-operations/Pages/division-14.aspx)
-    """)
-    
-    st.markdown("---")
+    st.markdown("### 🚗 NCDOT Road Conditions - Western North Carolina")
     
     # Current travel recommendation
     if euro_daily and ice_data:
@@ -1030,9 +1021,117 @@ with tab_roads:
         <div class="alert-box {css}">
             <h3>{status}</h3>
             <p>{desc}</p>
-            <p><strong>Today:</strong> {today_snow:.1f}\" snow, {ice_accum:.2f}\" ice, Low: {today_low:.0f}°F</p>
+            <p><strong>Today's Forecast:</strong> {today_snow:.1f}\" snow, {ice_accum:.2f}\" ice, Low: {today_low:.0f}°F</p>
         </div>
         """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Live DriveNC Map
+    st.markdown("#### 🗺️ Live Road Conditions Map - Western NC")
+    st.caption("Interactive map showing closures, incidents, and road conditions")
+    
+    # DriveNC embedded map focused on Western NC
+    drivenc_map = f"""
+    <iframe src="https://drivenc.gov/#?z=9&lat={LAT}&lng={LON}" 
+            width="100%" 
+            height="500" 
+            frameborder="0" 
+            style="border:0;" 
+            allowfullscreen>
+    </iframe>
+    """
+    st.markdown(drivenc_map, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Road condition guide
+    st.markdown("#### 🚦 Road Condition Guide")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **🟢 GREEN - Normal**
+        - Roads clear and dry
+        - No weather impacts
+        - Safe for travel
+        
+        **🟡 YELLOW - Caution**
+        - Wet or slick spots
+        - Reduced visibility
+        - Use extra caution
+        
+        **🔴 RED - Hazardous**
+        - Snow/ice covered
+        - Road closures
+        - Avoid if possible
+        """)
+    
+    with col2:
+        st.markdown("""
+        **❄️ Winter Driving Tips**
+        - Reduce speed by 50% on snow
+        - Use low gears on ice
+        - Avoid sudden braking
+        - Keep 8+ second following distance
+        - Clear all snow from vehicle
+        - Carry emergency kit
+        """)
+    
+    st.markdown("---")
+    
+    # Key routes for Western NC
+    st.markdown("#### 🛣️ Key Routes - Jackson County & Surrounding")
+    
+    key_routes = pd.DataFrame({
+        'Route': ['US-23/74', 'US-441', 'NC-107', 'US-19/23', 'Blue Ridge Parkway'],
+        'Description': [
+            'Main route - Sylva to Asheville',
+            'Sylva to Cherokee/Smoky Mountains',
+            'Sylva to Cashiers',
+            'Sylva to Maggie Valley',
+            'Scenic route (often closed in winter)'
+        ],
+        'Priority': ['🔴 High', '🔴 High', '🟡 Medium', '🟡 Medium', '🟢 Low (Seasonal)']
+    })
+    
+    st.dataframe(key_routes, use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    
+    # NCDOT Division 14 info
+    st.markdown("#### 📞 NCDOT Division 14 - Western NC")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        **☎️ Contact**
+        - **511** - Travel info
+        - **911** - Emergencies
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🌐 Resources**
+        - [DriveNC.gov](https://drivenc.gov)
+        - [Division 14 Info](https://www.ncdot.gov/divisions/highways/regional-operations/Pages/division-14.aspx)
+        """)
+    
+    with col3:
+        st.markdown("""
+        **📍 Coverage Area**
+        - Jackson County
+        - Haywood County
+        - Buncombe County
+        - Henderson County
+        - Macon County
+        - Swain County
+        - Graham County
+        """)
+    
+    st.info("💡 **Tip:** Check road conditions before traveling. Mountain roads can deteriorate rapidly in winter weather.")
 
 # --- TAB 7: POWER STATUS ---
 with tab_power:
