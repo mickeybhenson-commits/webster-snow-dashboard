@@ -1060,13 +1060,55 @@ with tab_power:
 with tab_radar:
     st.markdown("### 📡 Live Doppler Radar")
     
-    # Local radar
-    st.markdown("#### KGSP (Greenville-Spartanburg)")
-    local_radar = f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}"
-    st.image(local_radar, caption=f"Local Radar | {nc_time.strftime('%I:%M %p')}", width=600)
+    # Windy.com radar tabs
+    radar_view = st.radio("Select Radar View:", ["Local (Webster)", "Regional (Southeast)", "National (USA)"], horizontal=True)
+    
+    st.markdown("---")
+    
+    if radar_view == "Local (Webster)":
+        st.markdown("#### 🎯 Local Radar - Webster, NC")
+        st.caption("Zoomed view of Jackson County and surrounding area")
+        
+        # Windy embed - Local (zoom level 9) - Medium size
+        windy_local = f"""
+        <iframe width="100%" height="450" src="https://embed.windy.com/embed2.html?lat={LAT}&lon={LON}&detailLat={LAT}&detailLon={LON}&width=650&height=450&zoom=9&level=surface&overlay=radar&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=mph&metricTemp=°F&radarRange=-1" frameborder="0"></iframe>
+        """
+        st.markdown(windy_local, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # NWS radar as backup - smaller size
+        st.markdown("#### KGSP NWS Radar (Greenville-Spartanburg)")
+        local_radar = f"https://radar.weather.gov/ridge/standard/KGSP_loop.gif?t={ts}"
+        st.image(local_radar, caption=f"NWS Local Radar | {nc_time.strftime('%I:%M %p')}", width=500)
+        
+    elif radar_view == "Regional (Southeast)":
+        st.markdown("#### 🗺️ Regional Radar - Southeast US")
+        st.caption("North Carolina, Tennessee, Georgia, South Carolina region")
+        
+        # Windy embed - Regional (zoom level 6) - Medium size
+        windy_regional = f"""
+        <iframe width="100%" height="450" src="https://embed.windy.com/embed2.html?lat=35.5&lon=-82.5&detailLat={LAT}&detailLon={LON}&width=650&height=450&zoom=6&level=surface&overlay=radar&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=mph&metricTemp=°F&radarRange=-1" frameborder="0"></iframe>
+        """
+        st.markdown(windy_regional, unsafe_allow_html=True)
+        
+    else:  # National
+        st.markdown("#### 🇺🇸 National Radar - United States")
+        st.caption("Continental US weather systems")
+        
+        # Windy embed - National (zoom level 4) - Medium size
+        windy_national = f"""
+        <iframe width="100%" height="450" src="https://embed.windy.com/embed2.html?lat=39.0&lon=-98.0&detailLat={LAT}&detailLon={LON}&width=650&height=450&zoom=4&level=surface&overlay=radar&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=mph&metricTemp=°F&radarRange=-1" frameborder="0"></iframe>
+        """
+        st.markdown(windy_national, unsafe_allow_html=True)
+    
+    st.markdown("---")
     
     st.markdown("""
-    🔗 [View Full Interactive Radar](https://radar.weather.gov/station/kgsp/standard)
+    #### 🔗 Additional Radar Resources
+    - 🌐 [Full Windy.com Interactive Map](https://windy.com)
+    - 📡 [NWS KGSP Interactive Radar](https://radar.weather.gov/station/kgsp/standard)
+    - 🛰️ [GOES Satellite](https://www.star.nesdis.noaa.gov/goes/sector.php?sat=G16&sector=se)
     """)
 
 # --- FOOTER ---
