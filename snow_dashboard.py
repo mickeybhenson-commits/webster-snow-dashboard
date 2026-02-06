@@ -11,7 +11,11 @@ import json
 LAT = 35.351630
 LON = -83.210029
 LOCATION_NAME = "Webster, NC"
+ELEVATION_FT = 2360  # Webster elevation for terrain correction
 NCDOT_DIVISION = 14
+
+# Terrain snow enhancement factor (mountains get ~20-30% more snow than valleys)
+TERRAIN_MULTIPLIER = 1.25
 
 st.set_page_config(page_title="Stephanie's Snow & Ice Forecaster", page_icon="❄️", layout="wide")
 
@@ -74,11 +78,17 @@ with st.sidebar:
     if st.button("🔄 Refresh Data"): st.cache_data.clear(); st.rerun()
     st.markdown("---")
     st.caption(f"Last Updated:\n{nc_time.strftime('%I:%M:%S %p')}")
+    st.markdown("---")
+    st.markdown("### 📊 Data Sources")
+    st.caption("• ECMWF (European Model)")
+    st.caption("• GFS (American Model)")
+    st.caption("• NWS Observations")
+    st.caption("• Terrain Corrected")
 
 # --- HEADER ---
 st.title("❄️🧊 Stephanie's Snow & Ice Forecaster")
-st.markdown("#### *Bonnie Lane Edition - ECMWF Model + NCDOT + Duke Energy*")
-st.caption(f"Webster, NC | {nc_time.strftime('%A, %b %d %I:%M %p')}")
+st.markdown("#### *Enhanced Edition - Forecast • Real-time • Historical*")
+st.caption(f"Webster, NC ({ELEVATION_FT}' elevation) | {nc_time.strftime('%A, %b %d %I:%M %p')}")
 
 ts = int(time.time())
 
@@ -91,9 +101,55 @@ def get_nws_alerts():
         return r.get('features', [])
     except: return []
 
+@st.cache_data(ttl=1800)
+def get_historical_snow(days_back=7):
+    """Get observed snowfall from past days using Open-Meteo archive"""
+    try:
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
+        
+        url = "https://archive-api.open-meteo.com/v1/archive"
+        params = {
+            "latitude": LAT,
+            "longitude": LON,
+            "start_date": start_date.strftime('%Y-%m-%d'),
+            "end_date": end_date.strftime('%Y-%m-%d'),
+            "daily": ["snowfall_sum", "temperature_2m_max", "temperature_2m_min", "precipitation_sum"],
+            "temperature_unit": "fahrenheit",
+            "precipitation_unit": "inch",
+            "timezone": "America/New_York"
+        }
+        
+        response = requests.get(url, params=params, timeout=10).json()
+        return response.get('daily', None)
+    except Exception as e:
+        st.warning(f"Historical data unavailable: {e}")
+        return None
+
+@st.cache_data(ttl=300)
+def get_current_conditions():
+    """Get current real-time conditions"""
+    try:
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": LAT,
+            "longitude": LON,
+            "current": ["temperature_2m", "precipitation", "snowfall", "weather_code", "wind_speed_10m"],
+            "temperature_unit": "fahrenheit",
+            "precipitation_unit": "inch",
+            "wind_speed_unit": "mph",
+            "timezone": "America/New_York"
+        }
+        
+        response = requests.get(url, params=params, timeout=10).json()
+        return response.get('current', None)
+    except Exception as e:
+        st.warning(f"Current conditions unavailable: {e}")
+        return None
+
 @st.cache_data(ttl=3600)
 def get_euro_snow_ice():
-    """Get ECMWF model forecast with hourly data"""
+    """Get ECMWF model forecast with terrain correction"""
     try:
         url = "https://api.open-meteo.com/v1/forecast"
         
@@ -101,29 +157,71 @@ def get_euro_snow_ice():
         params_daily = {
             "latitude": LAT, 
             "longitude": LON, 
-            "daily": ["snowfall_sum", "rain_sum", "temperature_2m_max", "temperature_2m_min", "precipitation_sum"], 
+            "daily": ["snowfall_sum", "rain_sum", "temperature_2m_max", "temperature_2m_min", "precipitation_sum", "sunrise", "sunset", "wind_speed_10m_max"], 
             "timezone": "America/New_York", 
             "temperature_unit": "fahrenheit",
             "precipitation_unit": "inch",
+            "wind_speed_unit": "mph",
             "forecast_days": 7
         }
         daily_data = requests.get(url, params=params_daily, timeout=10).json().get('daily', None)
         
-        # Hourly forecast
+        # Hourly forecast - expanded for general weather
         params_hourly = {
             "latitude": LAT,
             "longitude": LON,
-            "hourly": ["temperature_2m", "precipitation", "rain", "snowfall", "weather_code", "apparent_temperature"],
+            "hourly": ["temperature_2m", "precipitation", "rain", "snowfall", "weather_code", "apparent_temperature", 
+                       "wind_speed_10m", "wind_direction_10m", "relative_humidity_2m", "cloud_cover", "visibility",
+                       "precipitation_probability"],
             "timezone": "America/New_York",
             "temperature_unit": "fahrenheit",
             "precipitation_unit": "inch",
+            "wind_speed_unit": "mph",
             "forecast_hours": 168
         }
         hourly_data = requests.get(url, params=params_hourly, timeout=10).json().get('hourly', None)
         
+        # Apply terrain correction to snow amounts
+        if hourly_data and 'snowfall' in hourly_data:
+            hourly_data['snowfall'] = [s * TERRAIN_MULTIPLIER for s in hourly_data['snowfall']]
+        
+        if daily_data and 'snowfall_sum' in daily_data:
+            daily_data['snowfall_sum'] = [s * TERRAIN_MULTIPLIER for s in daily_data['snowfall_sum']]
+        
         return daily_data, hourly_data
     except Exception as e:
-        st.error(f"Error fetching weather data: {e}")
+        st.error(f"Error fetching ECMWF forecast: {e}")
+        return None, None
+
+@st.cache_data(ttl=3600)
+def get_gfs_forecast():
+    """Get GFS model forecast for comparison"""
+    try:
+        url = "https://api.open-meteo.com/v1/gfs"
+        
+        params = {
+            "latitude": LAT,
+            "longitude": LON,
+            "hourly": ["temperature_2m", "snowfall", "precipitation"],
+            "daily": ["snowfall_sum", "temperature_2m_max", "temperature_2m_min"],
+            "temperature_unit": "fahrenheit",
+            "precipitation_unit": "inch",
+            "timezone": "America/New_York",
+            "forecast_days": 7
+        }
+        
+        response = requests.get(url, params=params, timeout=10).json()
+        
+        # Apply terrain correction
+        if 'hourly' in response and 'snowfall' in response['hourly']:
+            response['hourly']['snowfall'] = [s * TERRAIN_MULTIPLIER for s in response['hourly']['snowfall']]
+        
+        if 'daily' in response and 'snowfall_sum' in response['daily']:
+            response['daily']['snowfall_sum'] = [s * TERRAIN_MULTIPLIER for s in response['daily']['snowfall_sum']]
+        
+        return response.get('daily', None), response.get('hourly', None)
+    except Exception as e:
+        st.warning(f"GFS forecast unavailable: {e}")
         return None, None
 
 def calculate_ice_accumulation(hourly_data):
@@ -146,7 +244,7 @@ def calculate_ice_accumulation(hourly_data):
         ice_potential = 0
         
         if temp < 32 and precip > 0:
-            non_snow_precip = precip - snow
+            non_snow_precip = precip - (snow / TERRAIN_MULTIPLIER)  # Remove terrain correction for ice calc
             
             if non_snow_precip > 0:
                 if temp <= 20:
@@ -200,7 +298,7 @@ def get_weather_description(code):
 # --- ALERT BANNER ---
 alerts = get_nws_alerts()
 if alerts:
-    for alert in alerts[:3]:  # Limit to 3 most important
+    for alert in alerts[:3]:
         props = alert['properties']
         event = props['event']
         
@@ -215,29 +313,154 @@ if alerts:
         </div>
         """, unsafe_allow_html=True)
 
-# --- FETCH DATA ---
-with st.spinner("Loading weather data..."):
+# --- FETCH ALL DATA ---
+with st.spinner("Loading comprehensive weather data..."):
+    # Historical
+    historical = get_historical_snow(days_back=7)
+    
+    # Current
+    current = get_current_conditions()
+    
+    # Forecast - ECMWF
     euro_daily, euro_hourly = get_euro_snow_ice()
-    ice_data = calculate_ice_accumulation(euro_hourly)
+    ice_data = calculate_ice_accumulation(euro_hourly) if euro_hourly else {}
+    
+    # Forecast - GFS
+    gfs_daily, gfs_hourly = get_gfs_forecast()
+
+# --- CURRENT CONDITIONS BANNER ---
+if current:
+    st.markdown("### 🌡️ RIGHT NOW")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Temperature", f"{current.get('temperature_2m', 'N/A'):.0f}°F")
+    
+    with col2:
+        current_snow = current.get('snowfall', 0)
+        if current_snow > 0:
+            st.metric("SNOWING NOW", f"{current_snow:.2f}\" /hr", "❄️")
+        else:
+            st.metric("Conditions", get_weather_description(current.get('weather_code', 0)))
+    
+    with col3:
+        wind = current.get('wind_speed_10m', 0)
+        st.metric("Wind", f"{wind:.0f} mph")
+    
+    with col4:
+        precip = current.get('precipitation', 0)
+        st.metric("Precip Rate", f"{precip:.2f}\" /hr")
+
+st.markdown("---")
 
 # --- TABS ---
-tab_forecast, tab_ice, tab_roads, tab_power, tab_radar = st.tabs([
-    "❄️ Snow Forecast", 
+tab_historical, tab_forecast, tab_weather, tab_comparison, tab_ice, tab_roads, tab_power, tab_radar = st.tabs([
+    "📊 Historical (Observed)",
+    "❄️ Forecast", 
+    "🌤️ General Weather",
+    "📈 Model Comparison",
     "🧊 Ice Analysis", 
     "🚗 Road Conditions",
     "⚡ Power Status",
     "📡 Radar"
 ])
 
-# --- TAB 1: SNOW FORECAST ---
+# --- TAB 1: HISTORICAL ---
+with tab_historical:
+    st.markdown("### 📊 Past 7 Days - What Actually Fell")
+    st.caption("*Observed snowfall from weather station data*")
+    
+    if historical:
+        # Calculate totals
+        total_snow_observed = sum(historical['snowfall_sum'])
+        max_daily = max(historical['snowfall_sum'])
+        snow_days = sum([1 for s in historical['snowfall_sum'] if s > 0.1])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Snow (7 days)", f"{total_snow_observed:.1f}\"", "Observed")
+        with col2:
+            st.metric("Biggest Day", f"{max_daily:.1f}\"")
+        with col3:
+            st.metric("Snow Days", snow_days)
+        
+        st.markdown("---")
+        
+        # Historical table
+        hist_data = []
+        for i in range(len(historical['time'])):
+            date = pd.to_datetime(historical['time'][i])
+            snow = historical['snowfall_sum'][i]
+            temp_high = historical['temperature_2m_max'][i]
+            temp_low = historical['temperature_2m_min'][i]
+            
+            # Snow indicator
+            if snow >= 3.0:
+                indicator = "🔴 Heavy"
+            elif snow >= 1.0:
+                indicator = "🟡 Moderate"
+            elif snow > 0.1:
+                indicator = "🔵 Light"
+            else:
+                indicator = "⚪ None"
+            
+            hist_data.append({
+                'Date': date.strftime('%a %m/%d'),
+                'Snow (Observed)': f"{snow:.1f}\"",
+                'High': f"{temp_high:.0f}°F",
+                'Low': f"{temp_low:.0f}°F",
+                'Category': indicator
+            })
+        
+        df_hist = pd.DataFrame(hist_data)
+        st.dataframe(df_hist, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        
+        # Historical chart
+        st.markdown("#### 📈 Past Week Snowfall")
+        
+        fig_hist = go.Figure()
+        
+        dates = [pd.to_datetime(d).strftime('%a %m/%d') for d in historical['time']]
+        snow_amounts = historical['snowfall_sum']
+        
+        fig_hist.add_trace(go.Bar(
+            x=dates,
+            y=snow_amounts,
+            marker_color='#7B68EE',
+            text=[f"{s:.1f}\"" for s in snow_amounts],
+            textposition='outside',
+            name='Observed Snow'
+        ))
+        
+        fig_hist.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white'),
+            height=400,
+            title="Observed Snowfall - Past 7 Days",
+            showlegend=False,
+            yaxis_title="Snow (inches)"
+        )
+        
+        st.plotly_chart(fig_hist, use_container_width=True)
+        
+        st.info("💡 **This is ACTUAL observed data** from weather stations, not forecast models.")
+        
+    else:
+        st.error("❌ Historical data unavailable")
+
+# --- TAB 2: FORECAST ---
 with tab_forecast:
-    st.markdown("### ❄️ ECMWF Snow Forecast")
+    st.markdown("### ❄️ ECMWF Snow Forecast (Terrain Corrected)")
+    st.caption(f"*Enhanced with {int((TERRAIN_MULTIPLIER-1)*100)}% terrain multiplier for {ELEVATION_FT}' elevation*")
     
     if euro_daily and euro_hourly:
-        # Calculate today's remaining snow (next 12-24 hours in current calendar day)
+        # Calculate today's remaining snow
         now = pd.Timestamp.now(tz='US/Eastern')
         today_key = now.strftime('%Y-%m-%d')
-        tomorrow_key = (now + timedelta(days=1)).strftime('%Y-%m-%d')
         
         today_remaining_snow = 0
         for i in range(len(euro_hourly['time'])):
@@ -245,16 +468,16 @@ with tab_forecast:
             if hour_dt >= now and hour_dt.strftime('%Y-%m-%d') == today_key:
                 today_remaining_snow += euro_hourly['snowfall'][i]
         
-        # Calculate 7-day total from hourly data for accuracy
-        total_snow = sum([euro_hourly['snowfall'][i] for i in range(min(168, len(euro_hourly['snowfall'])))])  # 168 hours = 7 days
+        # 7-day total
+        total_snow = sum([euro_hourly['snowfall'][i] for i in range(min(168, len(euro_hourly['snowfall'])))])
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Rest of Today", f"{today_remaining_snow:.2f}\" snow", 
-                     help="Snow expected for remainder of today")
+            st.metric("Rest of Today", f"{today_remaining_snow:.1f}\" snow", 
+                     help="Terrain-corrected forecast")
         with col2:
-            st.metric("Next 7 Days", f"{total_snow:.2f}\" snow",
-                     help="Total snow over next week")
+            st.metric("Next 7 Days", f"{total_snow:.1f}\" snow",
+                     help="Terrain-corrected total")
         with col3:
             # Time until next snow
             next_snow_time = None
@@ -267,24 +490,22 @@ with tab_forecast:
             if next_snow_time:
                 hours_until = int((next_snow_time - now).total_seconds() / 3600)
                 if hours_until <= 0:
-                    st.metric("Snow Status", "NOW", "❄️", help="Snow is falling or starting soon!")
+                    st.metric("Snow Status", "NOW", "❄️")
                 else:
-                    st.metric("Snow Starts In", f"{hours_until}hr", "⏰", help=f"Expected at {next_snow_time.strftime('%I:%M %p')}")
+                    st.metric("Snow Starts In", f"{hours_until}hr", "⏰")
             else:
-                st.metric("Next Snow", "None expected", help="No snow in 7-day forecast")
+                st.metric("Next Snow", "None expected")
         
         st.markdown("---")
         
         # HOURLY FORECAST - Next 12 Hours
         st.markdown("#### ⏰ Next 12 Hours - Detailed Forecast")
         
-        now = pd.Timestamp.now(tz='US/Eastern')
         hourly_forecast = []
         
         for i in range(min(12, len(euro_hourly['time']))):
             hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
             
-            # Skip if hour is in the past
             if hour_dt < now:
                 continue
                 
@@ -336,22 +557,17 @@ with tab_forecast:
         
         st.markdown("---")
         
-        # DAILY BREAKDOWN - 7 Days (calculated from hourly data for accuracy)
+        # DAILY BREAKDOWN
         st.markdown("#### 📅 7-Day Daily Breakdown")
-        st.caption("*Snow totals calculated from hourly forecast to show when snow actually falls*")
         
-        # Calculate daily totals from hourly data
+        # Calculate daily totals from hourly
         daily_totals = {}
         for i in range(len(euro_hourly['time'])):
             hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
             day_key = hour_dt.strftime('%Y-%m-%d')
             
             if day_key not in daily_totals:
-                daily_totals[day_key] = {
-                    'snow': 0,
-                    'rain': 0,
-                    'date': hour_dt.date()
-                }
+                daily_totals[day_key] = {'snow': 0, 'rain': 0}
             
             daily_totals[day_key]['snow'] += euro_hourly['snowfall'][i]
             daily_totals[day_key]['rain'] += euro_hourly['rain'][i]
@@ -361,30 +577,26 @@ with tab_forecast:
             day_date = pd.to_datetime(euro_daily['time'][i])
             day_key = day_date.strftime('%Y-%m-%d')
             
-            # Use hourly-calculated totals for accuracy
             snow = daily_totals.get(day_key, {}).get('snow', 0)
-            
             temp_high = euro_daily['temperature_2m_max'][i]
             temp_low = euro_daily['temperature_2m_min'][i]
             
-            # Snow indicator
             if snow >= 3.0:
                 indicator = "🔴 Heavy"
             elif snow >= 1.0:
                 indicator = "🟡 Moderate"
-            elif snow > 0.05:  # Lower threshold to catch light snow
+            elif snow > 0.05:
                 indicator = "🔵 Light"
             else:
                 indicator = "⚪ None"
             
-            # Add ice indicator
             ice_indicator = ""
             if day_key in ice_data and ice_data[day_key]['ice_accum'] > 0:
                 ice_indicator = " 🧊"
             
             daily_data.append({
                 'Date': day_date.strftime('%a %m/%d'),
-                'Snowfall': f"{snow:.2f}\"",
+                'Snowfall': f"{snow:.1f}\"",
                 'High': f"{temp_high:.0f}°F",
                 'Low': f"{temp_low:.0f}°F",
                 'Type': indicator + ice_indicator
@@ -393,16 +605,13 @@ with tab_forecast:
         df_daily = pd.DataFrame(daily_data)
         st.dataframe(df_daily, use_container_width=True, hide_index=True)
         
-        st.info("💡 **Note:** Snow falling late tonight counts toward today's total, not tomorrow's. This matches the hourly forecast above.")
-        
         st.markdown("---")
         
-        # Visual Chart
-        st.markdown("#### 📈 7-Day Snow Chart")
+        # Chart
+        st.markdown("#### 📈 7-Day Snow Forecast")
         
         fig = go.Figure()
         
-        # Use hourly-calculated totals for the chart
         chart_dates = []
         chart_snow = []
         for i in range(min(7, len(euro_daily['time']))):
@@ -419,7 +628,7 @@ with tab_forecast:
             marker_color='#4ECDC4',
             text=[f"{s:.1f}\"" for s in chart_snow],
             textposition='outside',
-            name='Snow'
+            name='Forecast Snow'
         ))
         
         fig.update_layout(
@@ -427,16 +636,293 @@ with tab_forecast:
             paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
             height=400,
-            title="Expected Snowfall by Day (inches)",
-            showlegend=False
+            title="ECMWF Forecast (Terrain Corrected)",
+            showlegend=False,
+            yaxis_title="Snow (inches)"
         )
         
         st.plotly_chart(fig, use_container_width=True)
-    
+        
     else:
-        st.error("❌ Unable to load forecast data. Please refresh.")
+        st.error("❌ Forecast data unavailable")
 
-# --- TAB 2: ICE ANALYSIS ---
+# --- TAB 3: GENERAL WEATHER ---
+with tab_weather:
+    st.markdown("### 🌤️ 24-Hour General Weather Forecast")
+    st.caption("*Temperature, rain, wind, and other conditions*")
+    
+    if euro_daily and euro_hourly:
+        # Today's summary
+        today_high = euro_daily['temperature_2m_max'][0]
+        today_low = euro_daily['temperature_2m_min'][0]
+        today_rain = euro_daily['rain_sum'][0]
+        today_wind_max = euro_daily.get('wind_speed_10m_max', [0])[0]
+        
+        sunrise = pd.to_datetime(euro_daily.get('sunrise', [None])[0])
+        sunset = pd.to_datetime(euro_daily.get('sunset', [None])[0])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Today's High", f"{today_high:.0f}°F")
+        with col2:
+            st.metric("Today's Low", f"{today_low:.0f}°F")
+        with col3:
+            st.metric("Rain Total", f"{today_rain:.2f}\"")
+        with col4:
+            st.metric("Max Wind", f"{today_wind_max:.0f} mph")
+        
+        if sunrise and sunset:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("🌅 Sunrise", sunrise.strftime('%I:%M %p'))
+            with col2:
+                st.metric("🌇 Sunset", sunset.strftime('%I:%M %p'))
+        
+        st.markdown("---")
+        
+        # 24-Hour Detailed Forecast
+        st.markdown("#### ⏰ Next 24 Hours - Hour by Hour")
+        
+        now = pd.Timestamp.now(tz='US/Eastern')
+        weather_24hr = []
+        
+        for i in range(min(24, len(euro_hourly['time']))):
+            hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
+            
+            if hour_dt < now:
+                continue
+            
+            temp = euro_hourly['temperature_2m'][i]
+            feels_like = euro_hourly['apparent_temperature'][i]
+            rain = euro_hourly.get('rain', [0] * len(euro_hourly['time']))[i]
+            precip_prob = euro_hourly.get('precipitation_probability', [0] * len(euro_hourly['time']))[i]
+            wind_speed = euro_hourly.get('wind_speed_10m', [0] * len(euro_hourly['time']))[i]
+            wind_dir = euro_hourly.get('wind_direction_10m', [0] * len(euro_hourly['time']))[i]
+            humidity = euro_hourly.get('relative_humidity_2m', [0] * len(euro_hourly['time']))[i]
+            clouds = euro_hourly.get('cloud_cover', [0] * len(euro_hourly['time']))[i]
+            weather_code = euro_hourly.get('weather_code', [0] * len(euro_hourly['time']))[i]
+            
+            # Wind direction
+            def wind_direction_text(degrees):
+                dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
+                       'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+                ix = round(degrees / (360. / len(dirs)))
+                return dirs[ix % len(dirs)]
+            
+            wind_text = f"{wind_direction_text(wind_dir)} {wind_speed:.0f}"
+            
+            conditions = get_weather_description(weather_code)
+            
+            weather_24hr.append({
+                'Time': hour_dt.strftime('%I %p'),
+                'Temp': f"{temp:.0f}°F",
+                'Feels': f"{feels_like:.0f}°F",
+                'Conditions': conditions,
+                'Rain': f"{rain:.2f}\"" if rain > 0 else "—",
+                'Rain %': f"{precip_prob:.0f}%" if precip_prob > 0 else "—",
+                'Wind': wind_text + " mph",
+                'Humidity': f"{humidity:.0f}%",
+                'Clouds': f"{clouds:.0f}%"
+            })
+            
+            if len(weather_24hr) >= 24:
+                break
+        
+        if weather_24hr:
+            df_weather = pd.DataFrame(weather_24hr)
+            st.dataframe(df_weather, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        
+        # Temperature Chart
+        st.markdown("#### 🌡️ 24-Hour Temperature Trend")
+        
+        fig_temp = go.Figure()
+        
+        temp_times = []
+        temps = []
+        feels_temps = []
+        
+        for i in range(min(24, len(euro_hourly['time']))):
+            hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
+            if hour_dt < now:
+                continue
+                
+            temp_times.append(hour_dt.strftime('%I %p'))
+            temps.append(euro_hourly['temperature_2m'][i])
+            feels_temps.append(euro_hourly['apparent_temperature'][i])
+            
+            if len(temp_times) >= 24:
+                break
+        
+        fig_temp.add_trace(go.Scatter(
+            x=temp_times,
+            y=temps,
+            mode='lines+markers',
+            name='Actual Temp',
+            line=dict(color='#FF6B6B', width=3),
+            marker=dict(size=6)
+        ))
+        
+        fig_temp.add_trace(go.Scatter(
+            x=temp_times,
+            y=feels_temps,
+            mode='lines+markers',
+            name='Feels Like',
+            line=dict(color='#4ECDC4', width=2, dash='dot'),
+            marker=dict(size=4)
+        ))
+        
+        fig_temp.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white'),
+            height=400,
+            title="Temperature Forecast - Next 24 Hours",
+            yaxis_title="Temperature (°F)",
+            xaxis_title="Time",
+            hovermode='x unified',
+            legend=dict(x=0.02, y=0.98)
+        )
+        
+        st.plotly_chart(fig_temp, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Precipitation & Wind Chart
+        st.markdown("#### 🌧️ Precipitation & Wind - Next 24 Hours")
+        
+        fig_precip = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=('Precipitation', 'Wind Speed'),
+            vertical_spacing=0.12
+        )
+        
+        precip_times = []
+        precip_amounts = []
+        wind_speeds = []
+        
+        for i in range(min(24, len(euro_hourly['time']))):
+            hour_dt = pd.to_datetime(euro_hourly['time'][i], utc=True).tz_convert('US/Eastern')
+            if hour_dt < now:
+                continue
+                
+            precip_times.append(hour_dt.strftime('%I %p'))
+            precip_amounts.append(euro_hourly.get('rain', [0] * len(euro_hourly['time']))[i])
+            wind_speeds.append(euro_hourly.get('wind_speed_10m', [0] * len(euro_hourly['time']))[i])
+            
+            if len(precip_times) >= 24:
+                break
+        
+        # Precipitation bars
+        fig_precip.add_trace(
+            go.Bar(
+                x=precip_times,
+                y=precip_amounts,
+                name='Rain',
+                marker_color='#4ECDC4'
+            ),
+            row=1, col=1
+        )
+        
+        # Wind line
+        fig_precip.add_trace(
+            go.Scatter(
+                x=precip_times,
+                y=wind_speeds,
+                mode='lines+markers',
+                name='Wind',
+                line=dict(color='#95E1D3', width=2),
+                marker=dict(size=4)
+            ),
+            row=2, col=1
+        )
+        
+        fig_precip.update_xaxes(title_text="Time", row=2, col=1)
+        fig_precip.update_yaxes(title_text="Rain (inches)", row=1, col=1)
+        fig_precip.update_yaxes(title_text="Wind (mph)", row=2, col=1)
+        
+        fig_precip.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white'),
+            height=600,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig_precip, use_container_width=True)
+        
+    else:
+        st.error("❌ Weather data unavailable")
+
+# --- TAB 4: MODEL COMPARISON ---
+with tab_comparison:
+    st.markdown("### 📈 ECMWF vs GFS Model Comparison")
+    st.caption("*Comparing European and American forecast models (both terrain-corrected)*")
+    
+    if euro_daily and gfs_daily:
+        # Calculate totals
+        euro_total = sum(euro_daily['snowfall_sum'])
+        gfs_total = sum(gfs_daily['snowfall_sum'])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("ECMWF Total", f"{euro_total:.1f}\"", "European Model")
+        with col2:
+            st.metric("GFS Total", f"{gfs_total:.1f}\"", "American Model")
+        with col3:
+            diff = euro_total - gfs_total
+            st.metric("Difference", f"{abs(diff):.1f}\"", 
+                     f"ECMWF {'higher' if diff > 0 else 'lower'}")
+        
+        st.markdown("---")
+        
+        # Comparison chart
+        st.markdown("#### 📊 Side-by-Side Forecast")
+        
+        fig_compare = make_subplots(specs=[[{"secondary_y": False}]])
+        
+        euro_dates = [pd.to_datetime(d).strftime('%a %m/%d') for d in euro_daily['time'][:7]]
+        euro_snow = euro_daily['snowfall_sum'][:7]
+        gfs_snow = gfs_daily['snowfall_sum'][:7]
+        
+        fig_compare.add_trace(go.Bar(
+            x=euro_dates,
+            y=euro_snow,
+            name='ECMWF',
+            marker_color='#4ECDC4',
+            text=[f"{s:.1f}\"" for s in euro_snow],
+            textposition='outside'
+        ))
+        
+        fig_compare.add_trace(go.Bar(
+            x=euro_dates,
+            y=gfs_snow,
+            name='GFS',
+            marker_color='#FF6B6B',
+            text=[f"{s:.1f}\"" for s in gfs_snow],
+            textposition='outside'
+        ))
+        
+        fig_compare.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white'),
+            height=450,
+            title="Model Comparison - 7 Day Forecast",
+            barmode='group',
+            yaxis_title="Snow (inches)",
+            legend=dict(x=0.02, y=0.98)
+        )
+        
+        st.plotly_chart(fig_compare, use_container_width=True)
+        
+        st.info("💡 **Model Agreement:** When both models predict similar amounts, confidence is higher. Large differences indicate uncertainty.")
+        
+    else:
+        st.warning("Model comparison data unavailable")
+
+# --- TAB 5: ICE ANALYSIS ---
 with tab_ice:
     st.markdown("### 🧊 Ice & Freezing Rain Forecast")
     
@@ -472,7 +958,6 @@ with tab_ice:
                 ice_risk = 'None'
                 freezing_hours = 0
             
-            # Risk indicator
             risk_emoji = {
                 'High': "🔴 HIGH",
                 'Moderate': "🟡 MODERATE",
@@ -501,9 +986,9 @@ with tab_ice:
             **⚪ NO RISK:** No freezing rain expected
             """)
     else:
-        st.error("❌ Unable to load ice data.")
+        st.error("❌ Ice data unavailable")
 
-# --- TAB 3: ROAD CONDITIONS ---
+# --- TAB 6: ROAD CONDITIONS ---
 with tab_roads:
     st.markdown("### 🚗 NCDOT Road Conditions")
     
@@ -524,7 +1009,6 @@ with tab_roads:
         today_snow = euro_daily['snowfall_sum'][0] if len(euro_daily['snowfall_sum']) > 0 else 0
         today_low = euro_daily['temperature_2m_min'][0] if len(euro_daily['temperature_2m_min']) > 0 else 40
         
-        # Determine travel status
         if ice_risk == 'High' or ice_accum >= 0.25 or today_snow >= 3.0:
             status = "🔴 AVOID TRAVEL"
             desc = "Hazardous conditions expected."
@@ -550,7 +1034,7 @@ with tab_roads:
         </div>
         """, unsafe_allow_html=True)
 
-# --- TAB 4: POWER STATUS ---
+# --- TAB 7: POWER STATUS ---
 with tab_power:
     st.markdown("### ⚡ Duke Energy - Power Status")
     
@@ -572,7 +1056,7 @@ with tab_power:
     Shows current outages, affected areas, and estimated restoration times.
     """)
 
-# --- TAB 5: RADAR ---
+# --- TAB 8: RADAR ---
 with tab_radar:
     st.markdown("### 📡 Live Doppler Radar")
     
@@ -587,5 +1071,6 @@ with tab_radar:
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF • NCDOT • Duke Energy")
+st.caption(f"**Enhanced Edition** | Terrain-corrected for {ELEVATION_FT}' elevation (+{int((TERRAIN_MULTIPLIER-1)*100)}%)")
+st.caption("**Data Sources:** NWS/NOAA • Open-Meteo ECMWF & GFS • Historical Archive • NCDOT • Duke Energy")
 st.caption("**Stephanie's Snow & Ice Forecaster** | Bonnie Lane Edition")
